@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SellerAI — Маркетплейс аналитикасы</title>
+    <!-- Tailwind CSS CDN with dark mode config -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Inter & Outfit Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-outfit { font-family: 'Outfit', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 antialiased min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- Navbar -->
+    <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 shadow-sm transition-colors duration-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="window.location.reload()">
+                <div class="bg-indigo-600 text-white font-bold p-2 rounded-xl text-lg shadow-md shadow-indigo-200 dark:shadow-none">S</div>
+                <span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white font-outfit">Seller<span class="text-indigo-600 dark:text-indigo-400">AI</span></span>
+            </div>
+
+            <div class="flex items-center space-x-2.5 sm:space-x-3">
+                <span id="aiBadge" class="hidden sm:flex h-9 items-center px-3.5 text-xs font-semibold rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 gap-1.5 shadow-sm transition-all">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="aiBadgeText" data-i18n="systemActive">● Жүйе белсенді</span>
+                </span>
+
+                <!-- Language Switcher Dropdown -->
+                <div class="relative inline-block text-left" id="langDropdownContainer">
+                    <button type="button" onclick="toggleLangDropdown()" id="langDropdownBtn" class="h-9 flex items-center justify-center gap-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm">
+                        <span id="currentLangFlag">🇰🇿</span>
+                        <span id="currentLangLabel">Қазақша</span>
+                        <svg class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200" id="langArrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div id="langDropdownMenu" class="hidden absolute right-0 mt-2 w-40 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl z-50 overflow-hidden py-1 transition-all">
+                        <button type="button" onclick="selectLanguage('kk')" class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-800/80 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-2 transition-all">
+                            <span>🇰🇿</span> Қазақша (QAZ)
+                        </button>
+                        <button type="button" onclick="selectLanguage('ru')" class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-800/80 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-2 transition-all">
+                            <span>🇷🇺</span> Русский (RUS)
+                        </button>
+                        <button type="button" onclick="selectLanguage('en')" class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-800/80 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-2 transition-all">
+                            <span>🇬🇧</span> English (ENG)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dark / Light Mode Toggle Button -->
+                <button type="button" onclick="toggleDarkMode()" id="themeToggleBtn" title="Темі/Жарық режим" class="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-indigo-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm group">
+                    <!-- Sun Icon (visible in Light Mode) -->
+                    <svg id="sunIcon" class="w-4 h-4 text-amber-500 transition-transform duration-300 group-hover:rotate-45" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2"></path>
+                        <path d="M12 20v2"></path>
+                        <path d="m4.93 4.93 1.41 1.41"></path>
+                        <path d="m17.66 17.66 1.41 1.41"></path>
+                        <path d="M2 12h2"></path>
+                        <path d="M22 12h-2"></path>
+                        <path d="m6.34 17.66-1.41 1.41"></path>
+                        <path d="m19.07 4.93-1.41 1.41"></path>
+                    </svg>
+                    <!-- Moon Icon (visible in Dark Mode) -->
+                    <svg id="moonIcon" class="w-4 h-4 text-indigo-400 hidden transition-transform duration-300 group-hover:-rotate-12" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                    </svg>
+                </button>
+
+                <!-- Profile Badge SA -->
+                <div class="h-9 w-9 rounded-xl bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-xs shadow-sm">SA</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+        
+        <!-- Top Bar / Search Product -->
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-8 transition-all hover:shadow-md">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 dark:text-white mb-1" data-i18n="mainTitle">Тауарды бақылау және бәсекелестерді талдау</h1>
+                    <p class="text-sm text-slate-500 dark:text-slate-400" data-i18n="mainSub">Kaspi немесе басқа маркетплейс сілтемесін енгізіп, бәсекелес бағасын лезде бақылаңыз.</p>
+                </div>
+                <!-- Marketplace Dropdown Selector -->
+                <div class="relative inline-block text-left" id="mpDropdownContainer">
+                    <button type="button" onclick="toggleMpDropdown()" id="mpDetectedBadgeBtn" class="self-start md:self-center text-xs font-semibold px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition-all flex items-center gap-1.5 shadow-xs hover:bg-indigo-100 dark:hover:bg-indigo-900/80 cursor-pointer">
+                        <span id="mpBadgeDot" class="w-2 h-2 rounded-full bg-red-500"></span>
+                        <span id="mpBadgeText">Маркетплейс: Kaspi.kz</span>
+                        <svg id="mpArrow" class="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div id="mpDropdownMenu" class="hidden absolute right-0 mt-2 w-48 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl z-50 overflow-hidden py-1 transition-all">
+                        <button type="button" onclick="selectMarketplace('kaspi')" class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-800/80 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-2 transition-all">
+                            <span class="w-2 h-2 rounded-full bg-red-500"></span> Kaspi.kz
+                        </button>
+                        <button type="button" onclick="selectMarketplace('wildberries')" class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-800/80 hover:text-fuchsia-600 dark:hover:text-fuchsia-400 flex items-center gap-2 transition-all">
+                            <span class="w-2 h-2 rounded-full bg-fuchsia-500"></span> Wildberries
+                        </button>
+                        <button type="button" onclick="selectMarketplace('ozon')" class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-800/80 hover:text-sky-600 dark:hover:text-sky-400 flex items-center gap-2 transition-all">
+                            <span class="w-2 h-2 rounded-full bg-sky-500"></span> Ozon
+                        </button>
+                        <button type="button" onclick="selectMarketplace('yandex')" class="w-full text-left px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-800/80 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-2 transition-all">
+                            <span class="w-2 h-2 rounded-full bg-amber-500"></span> Яндекс Маркет
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <form onsubmit="event.preventDefault(); runAnalysis();" class="flex flex-col md:flex-row gap-3 items-stretch">
+                <!-- URL Input with Link Icon -->
+                <div class="relative flex-1">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                        </svg>
+                    </div>
+                    <input type="text" id="productUrl" 
+                           value="https://kaspi.kz/shop/p/apple-iphone-15-128gb-chernyi-113137790/"
+                           placeholder="https://kaspi.kz/shop/p/iphone-15-128gb..." 
+                           data-i18n-placeholder="placeholderUrl"
+                           oninput="handleUrlInput(this.value)"
+                           class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm">
+                </div>
+                
+                <!-- Shop Input with Store Icon -->
+                <div class="relative w-full md:w-48">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.25A2.25 2.25 0 010 18.75V10.5M21 10.5v8.25A2.25 2.25 0 0118.75 21H13.5M21 10.5l-9-7.5-9 7.5" />
+                        </svg>
+                    </div>
+                    <input type="text" id="myShop" value="Almaty Mobile" placeholder="Дүкен аты" data-i18n-placeholder="placeholderShop" 
+                           class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm">
+                </div>
+
+                <!-- Submit Button with Clean Search SVG Icon -->
+                <button type="submit" id="submitBtn" class="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white px-6 py-2.5 rounded-xl font-medium text-sm transition-all shadow-md shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2 whitespace-nowrap">
+                    <svg class="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                    </svg>
+                    <span data-i18n="btnStartAnalysis">Талдауды бастау</span>
+                </button>
+            </form>
+
+            <!-- Presets Row (Redesigned for Low Visual Noise) -->
+            <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2 text-xs">
+                <span class="text-slate-400 dark:text-slate-500 font-medium mr-1" data-i18n="quickTest">Жылдам сынақ (Маркетплейстер):</span>
+                
+                <button type="button" onclick="loadPreset('iphone')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium border border-slate-200/80 dark:border-slate-700/80 transition-all shadow-2xs">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> Kaspi: iPhone 15
+                </button>
+                <button type="button" onclick="loadPreset('wildberries')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium border border-slate-200/80 dark:border-slate-700/80 transition-all shadow-2xs">
+                    <span class="w-2 h-2 rounded-full bg-fuchsia-500"></span> WB: Beauty Fox
+                </button>
+                <button type="button" onclick="loadPreset('ozon')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium border border-slate-200/80 dark:border-slate-700/80 transition-all shadow-2xs">
+                    <span class="w-2 h-2 rounded-full bg-sky-500"></span> Ozon: iPhone 15
+                </button>
+                <button type="button" onclick="loadPreset('samsung')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium border border-slate-200/80 dark:border-slate-700/80 transition-all shadow-2xs">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> Kaspi: S24 Ultra
+                </button>
+                <button type="button" onclick="loadPreset('airpods')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium border border-slate-200/80 dark:border-slate-700/80 transition-all shadow-2xs">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span> Kaspi: AirPods Pro 2
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-all hover:shadow-md">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1" data-i18n="kpiMyPrice">Сіздің бағаңыз</p>
+                <h3 id="kpiMyPrice" class="text-2xl font-bold text-slate-900 dark:text-white font-outfit">399 000 ₸</h3>
+                <span id="kpiMyPriceTrend" class="text-xs text-rose-600 dark:text-rose-400 font-medium mt-2 inline-block bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-100 dark:border-rose-900/40">↑ Нарықтан 2.8% қымбат</span>
+            </div>
+            
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-all hover:shadow-md">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1" data-i18n="kpiAvgPrice">Орташа нарық бағасы</p>
+                <h3 id="kpiAvgPrice" class="text-2xl font-bold text-slate-900 dark:text-white font-outfit">388 500 ₸</h3>
+                <span id="kpiCompetitorCount" class="text-xs text-slate-500 dark:text-slate-400 mt-2 inline-block">5 бәсекелес негізінде</span>
+            </div>
+            
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-all hover:shadow-md">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1" data-i18n="kpiCostPrice">Өз өзіндік құныңыз</p>
+                <div class="mt-1 flex items-center">
+                    <input type="number" id="costPrice" value="340000" oninput="updateMargin()" class="w-full text-xl font-bold text-slate-900 dark:text-white border-b border-dashed border-slate-300 dark:border-slate-700 focus:outline-none focus:border-indigo-500 font-outfit bg-transparent py-0.5">
+                    <span class="text-xl font-bold text-slate-900 dark:text-white ml-1">₸</span>
+                </div>
+                <span class="text-xs text-slate-400 dark:text-slate-500 mt-2 inline-block" data-i18n="clickToEdit">Басу арқылы өңдеуге болады</span>
+            </div>
+            
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-all hover:shadow-md">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1" data-i18n="kpiMargin">Болжалды маржа</p>
+                <h3 id="kpiMargin" class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-outfit">14.8%</h3>
+                <span id="kpiMarginStatus" class="text-xs text-emerald-700 dark:text-emerald-300 font-medium mt-2 inline-block bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/40">Тиімділік деңгейі: Жақсы</span>
+            </div>
+        </div>
+
+        <!-- Two Columns: AI Recommendations & Competitors List -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            
+            <!-- AI Recommendation Box (Smart Price Recommendation / Умная рекомендация цены) -->
+            <div class="bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-900 text-white p-6 rounded-2xl shadow-lg border border-slate-800 flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 p-1.5 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                            <span>🤖</span> <span data-i18n="pricingTitle">Умная рекомендация цены</span>
+                        </span>
+                        <span id="pricingStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            RECOMMENDED
+                        </span>
+                    </div>
+
+                    <!-- Input Controls Form -->
+                    <div class="space-y-2.5 mb-4 text-xs">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1" data-i18n="lblCostPrice">Себестоимость (₸)</label>
+                                <input type="number" id="pricingCostPrice" value="340000" oninput="document.getElementById('costPrice').value=this.value; updateMargin();" class="w-full px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/15 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1" data-i18n="lblMinMargin">Мин. маржа (%)</label>
+                                <input type="number" id="pricingMinMargin" value="10" min="0" max="90" class="w-full px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/15 text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1" data-i18n="lblStrategy">Стратегия ценообразования</label>
+                            <select id="pricingTarget" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-800 border border-white/15 text-white focus:outline-none focus:ring-1 focus:ring-indigo-400 text-xs">
+                                <option value="TOP_1" data-i18n="stratTop1">👑 TOP-1 (Занять 1-е место)</option>
+                                <option value="BALANCED" data-i18n="stratBalanced">⚖️ BALANCED (Сбалансированная)</option>
+                                <option value="MAX_MARGIN" data-i18n="stratMaxMargin">💰 MAX_MARGIN (Макс. прибыль)</option>
+                            </select>
+                        </div>
+
+                        <button type="button" onclick="runPricingEngine()" id="calcPricingBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white py-2 rounded-lg font-semibold transition-all shadow-md flex items-center justify-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18m-3-3.75V18m-3-3.75V18m3-12l6.562 6.562a1.5 1.5 0 010 2.121L12.75 21a1.5 1.5 0 01-2.121 0L4.125 14.438a1.5 1.5 0 010-2.121L10.5 5.75z" />
+                            </svg>
+                            <span data-i18n="btnCalculate">Рассчитать цену</span>
+                        </button>
+                    </div>
+
+                    <!-- Recommendation Results Box -->
+                    <div class="bg-white/10 p-3.5 rounded-xl mb-4 backdrop-blur-md border border-white/10">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs text-indigo-200" data-i18n="aiRecommendedLabel">Ұсынылатын оңтайлы баға:</span>
+                            <span id="pricingMinSafeDisplay" class="text-[10px] text-slate-300">Мин. безопасная: 377 778 ₸</span>
+                        </div>
+                        <div class="flex items-baseline justify-between">
+                            <span id="aiRecommendedPriceDisplay" class="text-2xl font-bold text-emerald-400 font-outfit">389 000 ₸</span>
+                            <span id="pricingPosDisplay" class="text-xs font-semibold text-emerald-300">Позиция: #2 → #1</span>
+                        </div>
+                        <div id="pricingExplanationList" class="mt-2 text-[11px] text-slate-300 leading-relaxed border-t border-white/10 pt-2 space-y-1">
+                            <p>• Цена самого дешёвого конкурента — 389 000 ₸.</p>
+                            <p>• Рекомендуемая цена позволяет занять 1-ю позицию при сохранении минимальной маржи.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <button id="applyRecBtn" onclick="applyPricingEngineRecommendation()" class="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white py-2.5 rounded-xl font-semibold text-xs transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                        <span>✅</span> <span data-i18n="btnApplyRec">Ұсынылған бағаны қабылдау</span>
+                    </button>
+                    <button onclick="simulateTelegramAlert()" class="w-full bg-white/10 hover:bg-white/15 text-slate-300 py-2 rounded-xl font-medium text-xs transition-all border border-white/10 flex items-center justify-center gap-1.5">
+                        <span>📱</span> <span data-i18n="btnTelegram">Telegram ескертуін алу</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Competitors Table -->
+            <div class="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-900 dark:text-white" data-i18n="compListTitle">Бәсекелестер тізімі</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400" data-i18n="compListSub">Нарықтағы белсенді сатушылардың бағалары</p>
+                    </div>
+                    <span class="text-xs bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold px-2.5 py-1 rounded-full border border-indigo-100 dark:border-indigo-800" data-i18n="liveStream">
+                        ● Тікелей эфир
+                    </span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                                <th class="pb-3" data-i18n="thSeller">Сатушы (Конкурент)</th>
+                                <th class="pb-3" data-i18n="thPrice">Бағасы</th>
+                                <th class="pb-3" data-i18n="thDiff">Динамика / Айырма</th>
+                                <th class="pb-3 text-right" data-i18n="thAction">Әрекет</th>
+                            </tr>
+                        </thead>
+                        <tbody id="competitorTbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Price Chart Section -->
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white" data-i18n="chartTitle">📈 Баға динамикасы мен бәсекелестер қозғалысы</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400" data-i18n="chartSub">Соңғы 24 сағаттағы баға өзгеру тарихы</p>
+                </div>
+                <button onclick="runAnalysis()" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1">
+                    <span>🔄</span> <span data-i18n="btnRefresh">Жаңарту</span>
+                </button>
+            </div>
+            <div class="h-64 w-full">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- My Products Management Section -->
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white" data-i18n="myProductsTitle">📦 Менің тауарларым (Мои товары)</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400" data-i18n="myProductsSub">Бақылаудағы тауарлар тізімі, бәсекелестер орташа бағасы мен айырмашылық %</p>
+                </div>
+                <button onclick="toggleAddProductForm()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 self-start sm:self-auto">
+                    <span>➕</span> <span data-i18n="btnAddProduct">Тауар қосу</span>
+                </button>
+            </div>
+
+            <!-- Add Product Form (Collapsible) -->
+            <form id="customProductForm" onsubmit="event.preventDefault(); submitCustomProduct();" class="hidden grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 mb-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1" data-i18n="lblProductName">Тауар атауы</label>
+                    <input type="text" id="customProductName" placeholder="Мысалы: iPhone 15 128GB" required class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1" data-i18n="lblMyPrice">Сату бағаңыз (₸)</label>
+                    <input type="number" id="customMyPrice" placeholder="410000" required class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1" data-i18n="lblCostPrice">Өзіндік құны (₸)</label>
+                    <input type="number" id="customCostPrice" placeholder="360000" class="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-end gap-2">
+                    <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs py-2 rounded-lg transition-all shadow-sm">
+                        <span>💾</span> <span data-i18n="btnSave">Сақтау</span>
+                    </button>
+                    <button type="button" onclick="toggleAddProductForm()" class="px-3 py-2 text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-all" data-i18n="btnCancel">
+                        Бас тарту
+                    </button>
+                </div>
+            </form>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="myProductsTable">
+                    <thead>
+                        <tr class="border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                            <th class="pb-3" data-i18n="thProductName">Тауар атауы</th>
+                            <th class="pb-3" data-i18n="thSellerPrice">Селлер бағасы</th>
+                            <th class="pb-3" data-i18n="thCompPrices">Бәсекелестер бағалары</th>
+                            <th class="pb-3" data-i18n="thMinPrice">Минималды баға</th>
+                            <th class="pb-3" data-i18n="thAvgPrice">Орташа баға</th>
+                            <th class="pb-3" data-i18n="thDiffPct">Айырма %</th>
+                            <th class="pb-3 text-right" data-i18n="thActions">Әрекет</th>
+                        </tr>
+                    </thead>
+                    <tbody id="myProductsTbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500 transition-colors duration-200">
+        <div class="max-w-7xl mx-auto px-4" data-i18n="footerText">
+            SellerAI Platform © 2026 — Kaspi.kz, Wildberries, Ozon & Yandex Market Аналитика Жүйесі
+        </div>
+    </footer>
+
+    <!-- Modular JavaScript Modules -->
+    <script src="frontend/js/theme.js"></script>
+    <script src="frontend/js/i18n.js"></script>
+    <script src="frontend/js/analytics.js"></script>
+    <script src="frontend/js/pricing.js"></script>
+    <script src="frontend/js/products.js"></script>
+    <script src="frontend/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: sellerai_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-seller_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password123}
+      POSTGRES_DB: ${POSTGRES_DB:-sellerai_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-seller_admin} -d ${POSTGRES_DB:-sellerai_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web_api:
+    build: .
+    container_name: sellerai_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-seller_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password123}
+      POSTGRES_DB: ${POSTGRES_DB:-sellerai_db}
+      POSTGRES_HOST: postgres_db
+      POSTGRES_PORT: 5432
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
