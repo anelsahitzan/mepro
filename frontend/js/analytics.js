@@ -1,32 +1,16 @@
 // --- Analytics & Backend API Presentation Module ---
 let priceChartInstance = null;
-window.currentProductId = 123;
+window.currentProductId = null;      // Тек API жауабынан толтырылады
 window.lastRecommendationId = null;
-window.currentMyPrice = 399000;
+window.currentMyPrice = 0;           // Тек API жауабынан толтырылады
 window.currentCompetitors = [];
 
+// loadPreset — PRESETS_DATA жойылды, функция енді шақырылмайды.
+// Нақты талдау үшін URL енгізіп, "Талдауды бастау" батырмасын басыңыз.
 async function loadPreset(key) {
-    const costPrice = parseFloat(document.getElementById('costPrice')?.value) || 340000;
-    const shopName = document.getElementById('myShop')?.value || "Almaty Mobile";
-    
-    try {
-        const res = await fetch('/api/v1/products/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                preset_key: key,
-                my_shop_name: shopName,
-                cost_price: costPrice
-            })
-        });
-
-        if (!res.ok) throw new Error("API status " + res.status);
-        const data = await res.json();
-        renderAnalysisData(data);
-    } catch (err) {
-        console.warn("Backend API unavailable, displaying offline state:", err);
-    }
+    console.info("loadPreset: PRESETS_DATA жойылды. Нақты маркетплейс URL-ін енгізіңіз.");
 }
+
 
 async function runAnalysis() {
     const t = translations[currentLang] || translations.kk;

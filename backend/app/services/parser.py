@@ -122,40 +122,22 @@ class KaspiParser:
         except Exception as e:
             logger.debug(f"Kaspi HTML scraping exception: {e}")
 
-        # Егер нақты баға табылмаса, дефолттық базалық бағаны аламыз
-        base_price = real_price if real_price else (403074.0 if "15" in product_id else 189990.0)
-
-        competitor_names = [
-            "Mechta.kz", "Sulpak", "Technodom", "Белый Ветер", 
-            "Kaspi Delivery Shop", "SmartKZ Store", "Almaty Mobile"
-        ]
-        
-        offers = []
-        # Нақты 1-орын бағасы
-        offers.append({
-            "seller_name": "Kaspi Top Seller",
-            "price": float(base_price),
-            "is_available": True,
-            "delivery_type": "Бүгін жеткізу",
-            "rating": 4.9,
-            "reviews_count": 820,
-            "marketplace": "kaspi"
-        })
-
-        for name in random.sample(competitor_names, 4):
-            delta = random.choice([2000, 4500, 7900, 11500, 16000])
-            offers.append({
-                "seller_name": name,
-                "price": float(base_price + delta),
+        # Нақты баға табылса — тек соны қайтарамыз. Кездейсоқ бәсекелестер жасамаймыз.
+        if real_price:
+            logger.info(f"✅ Kaspi HTML-ден нақты баға табылды: {real_price} ₸. Бір жазба қайтарылады.")
+            return [{
+                "seller_name": real_name or f"Kaspi Seller #{product_id}",
+                "price": real_price,
                 "is_available": True,
-                "delivery_type": random.choice(["Kaspi Доставка", "Экспресс 3 сағат", "Ертең"]),
-                "rating": round(random.uniform(4.5, 5.0), 1),
-                "reviews_count": random.randint(30, 650),
+                "delivery_type": "Kaspi Доставка",
+                "rating": None,
+                "reviews_count": None,
                 "marketplace": "kaspi"
-            })
+            }]
 
-        offers.sort(key=lambda x: x["price"])
-        return offers
+        # Ешқанда да табылмаса — бос тізім қайтарамыз
+        logger.warning(f"Kaspi: SKU {product_id} бойынша баға табылмады, бос тізім қайтарылады.")
+        return []
 
 
 class WildberriesParser:
@@ -187,18 +169,18 @@ class WildberriesParser:
     @classmethod
     def fetch_offers(cls, nm_id: str) -> List[Dict]:
         """
-        Wildberries CDN себетінен (wbbasket.ru) өнім картасын тартып алу
+        Wildberries CDN себетінен (вббаскет.ru) өнім картасын тартып алу
+        Нақты нәтиже табылмаса — бос тізім қайтарылады
         """
         product_title = None
         brand_name = "Wildberries Seller"
-        price_rub = 1850.0
+        price_rub = None
 
         try:
             art = int(nm_id)
             vol = art // 100000
             part = art // 1000
 
-            # WB CDN себеттерін автоматты сканерлеу
             for i in range(1, 20):
                 basket_str = f"0{i}" if i < 10 else f"{i}"
                 url = f"https://basket-{basket_str}.wbbasket.ru/vol{vol}/part{part}/{art}/info/ru/card.json"
@@ -210,37 +192,36 @@ class WildberriesParser:
                         selling = data.get("selling", {})
                         if selling:
                             brand_name = selling.get("brand_name", brand_name)
-                        logger.info(f"WB табылды (basket-{basket_str}): {product_title} [{brand_name}]")
+                        # Бағаны WB API-ден алу (salePriceU = қапаларда)
+                        salePriceU = data.get("salePriceU")
+                        priceU = data.get("priceU")
+                        if salePriceU:
+                            price_rub = float(salePriceU) / 100.0
+                        elif priceU:
+                            price_rub = float(priceU) / 100.0
+                        logger.info(f"WB табылды (basket-{basket_str}): {product_title} [{brand_name}] баға={price_rub} ₽")
                         break
                 except Exception:
                     continue
         except Exception as e:
             logger.warning(f"WB парсинг барысында қате: {e}")
 
+        if not price_rub:
+            logger.warning(f"WB: nm_id={nm_id} бойынша баға табылмады, бос тізім қайтарылады.")
+            return []
+
         # Қазақстан үшін KZT валютасына конвертациялау (~5.1 ₸)
-        base_price_kzt = round(price_rub * 5.1, -1) if price_rub else 9990.0
+        price_kzt = round(price_rub * 5.1, -1)
 
-        # WB сатушылары мен бәсекелестер тізімі
-        wb_competitors = [
-            brand_name, "WB Direct Store", "Official Distributor KZ", 
-            "Fulfillment Pro", "Top Fashion Retail"
-        ]
-
-        offers = []
-        for idx, seller in enumerate(wb_competitors):
-            price_delta = 0 if idx == 0 else random.choice([-500, 350, 800, 1500, 2200])
-            offers.append({
-                "seller_name": f"{seller} (WB)",
-                "price": float(max(base_price_kzt + price_delta, 1000)),
-                "is_available": True,
-                "delivery_type": random.choice(["WB Склад (FBS)", "Со склада продавца (FBO)", "Экспресс"]),
-                "rating": round(random.uniform(4.6, 5.0), 1),
-                "reviews_count": random.randint(40, 1200),
-                "marketplace": "wildberries"
-            })
-
-        offers.sort(key=lambda x: x["price"])
-        return offers
+        return [{
+            "seller_name": f"{brand_name} (WB)",
+            "price": float(price_kzt),
+            "is_available": True,
+            "delivery_type": "WB Доставка",
+            "rating": None,
+            "reviews_count": None,
+            "marketplace": "wildberries"
+        }]
 
 
 class OzonParser:
@@ -273,30 +254,11 @@ class OzonParser:
     @classmethod
     def fetch_offers(cls, product_id: str) -> List[Dict]:
         """
-        Ozon сатушылары мен Ozon Карта бағаларын алу
+        Ozon тауары бойынша нақты деректер алу ерекешеті.
+        Ozon API икемді авторизация талап етеді, бүгінде бос тізім қайтарамыз.
         """
-        base_price = 398000.0 if "15" in product_id else 45990.0
-
-        ozon_sellers = [
-            "Ozon Казахстан (Ритейл)", "iStore Global", "Almaty Digital", 
-            "Premium Tech KZ", "ElectroHub"
-        ]
-
-        offers = []
-        for idx, s_name in enumerate(ozon_sellers):
-            price_delta = -4000 if idx == 0 else random.choice([0, 3000, 6500, 12000])
-            offers.append({
-                "seller_name": f"{s_name} (Ozon)",
-                "price": float(max(base_price + price_delta, 5000)),
-                "is_available": True,
-                "delivery_type": random.choice(["Ozon Fresh (2 сағ)", "Ozon Rocket", "Курьер"]),
-                "rating": round(random.uniform(4.7, 5.0), 1),
-                "reviews_count": random.randint(15, 980),
-                "marketplace": "ozon"
-            })
-
-        offers.sort(key=lambda x: x["price"])
-        return offers
+        logger.warning(f"Ozon: SKU {product_id} — Ozon API толық іске асырылмаған. Бос тізім қайтарылады.")
+        return []
 
 
 class YandexMarketParser:
@@ -318,21 +280,12 @@ class YandexMarketParser:
 
     @classmethod
     def fetch_offers(cls, product_id: str) -> List[Dict]:
-        base_price = 395000.0
-        sellers = ["Яндекс Фабрика", "ТехноМаркет", "Prime Store", "SuperGoods"]
-        offers = []
-        for s in sellers:
-            offers.append({
-                "seller_name": f"{s} (Yandex)",
-                "price": float(base_price + random.choice([0, 2500, 5000, 9000])),
-                "is_available": True,
-                "delivery_type": "Яндекс Доставка",
-                "rating": 4.8,
-                "reviews_count": 210,
-                "marketplace": "yandex_market"
-            })
-        offers.sort(key=lambda x: x["price"])
-        return offers
+        """
+        Yandex Market API толық іске асырылмаған.
+        Бос тізім қайтарылады.
+        """
+        logger.warning(f"YandexMarket: SKU {product_id} — API толық іске асырылмаған. Бос тізім қайтарылады.")
+        return []
 
 
 class UnifiedMarketplaceRouter:

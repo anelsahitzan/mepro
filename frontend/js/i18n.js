@@ -45,14 +45,16 @@ const translations = {
         chartLegendMine: "Сіздің бағаңыз ( Almaty Mobile )",
         chartLegendLowest: "Ең төмен баға (Нарық көшбасшысы)",
         btnRefresh: "Жаңарту",
-        myProductsTitle: "📦 Менің тауарларым (Мои товары)",
-        myProductsSub: "Бақылаудағы тауарлар тізімі, бәсекелестер орташа бағасы мен айырмашылық %",
+        
+        myProductsTitle: "📦 Менің тауарларым",
+        myProductsSub: "Бақылаудағы тауарлар тізімі, бәсекелестердің орташа бағасы мен айырмашылық %",
         btnAddProduct: "Тауар қосу",
         lblProductName: "Тауар атауы",
         lblMyPrice: "Сату бағаңыз (₸)",
         lblCostPrice: "Өзіндік құны (₸)",
         btnSave: "Сақтау",
         btnCancel: "Бас тарту",
+        
         thProductName: "Тауар атауы",
         thSellerPrice: "Селлер бағасы",
         thCompPrices: "Бәсекелестер бағалары",
@@ -60,6 +62,8 @@ const translations = {
         thAvgPrice: "Орташа баға",
         thDiffPct: "Айырма %",
         thActions: "Әрекет",
+        thAIAnalysis: "AI Анализ",
+        thHistory: "Тарих",
         btnDelete: "Жою",
         footerText: "SellerAI Platform © 2026 — Kaspi.kz, Wildberries, Ozon & Yandex Market Аналитика Жүйесі",
         tagLeader: "👑 Лидер",
@@ -74,7 +78,56 @@ const translations = {
         alertAnalysisDone: "✅ Бәсекелестер дерегі жаңартылды! Ең оңтайлы баға мен маржа қайта есептелді.",
         alertPriceApplied: "✅ Жаңа баға ({price} ₸) сәтті қабылданды! Маржа мен көрсеткіштер автоматты түрде қайта есептелді.",
         alertProductAdded: "✅ Тауар \"{name}\" сәтті қосылды!",
-        alertTgMsg: "📱 Telegram Bot хабарламасы жолданды:\n\n\"⚠️ SellerAI Alert: Бәсекелес бағаны 389,000 ₸-ге түсірді. 1-орынды алу үшін ұсынылатын баға: 389,000 ₸\""
+        alertTgMsg: "📱 Telegram Bot хабарламасы жолданды:\n\n\"⚠️ SellerAI Alert: Бәсекелес бағаны 389,000 ₸-ге түсірді. 1-орынды алу үшін ұсынылатын баға: 389,000 ₸\"",
+        
+        // Auth UI
+        btnLogout: "Шығу",
+        authTitleLogin: "Кіру",
+        authTitleRegister: "Тіркелу",
+        authSubtitle: "SellerAI жүйесіне қош келдіңіз",
+        authFullName: "Аты-жөніңіз",
+        authFullNamePlaceholder: "Атыңыз",
+        authPassword: "Құпия сөз",
+        authSubmitBtn: "Кіру",
+        authSubmitBtnRegister: "Тіркелу",
+        authWait: "Күтіңіз...",
+        authNoAccount: "Аккаунтыңыз жоқ па?",
+        authHasAccount: "Аккаунтыңыз бар ма?",
+        authActionRegister: "Тіркелу",
+        authActionLogin: "Кіру",
+        
+        // Auto update UI & Price Changes
+        autoUpdateTitle: "Авто-жаңарту",
+        autoUpdateSub: "Бағаларды әр 30 минут сайын тексеру",
+                statusOn: "Қосулы",
+        statusOff: "Өшірулі",
+        badgeOk: "✅ Нақты деректер",
+        badgeManual: "✏️ Қолмен",
+        badgeNoData: "⚠️ Деректер жоқ",
+        badgeApiReq: "🔑 API қажет",
+        loadingText: "Жүктелуде...",
+        loadingHistory: "Тарих жүктелуде...",
+        emptyHistory: "Бұл тауардың баға тарихы әлі жоқ.",
+        historyTitle: "Тарих (соңғы тексерістер)",
+        thTime: "Уақыты",
+        thMyPrice: "Менің бағам",
+        thMinComp: "Мин. бәсекелес",
+        thAvgPrice: "Орташа баға",
+        thComps: "Конкуренттер",
+        thTrend: "Тренд",
+        trendUp: "↑ Өсті",
+        trendDown: "↓ Түсті",
+        trendStable: "= Өзгеріссіз",
+        updatingText: "Жаңартылуда...",
+        updatedText: "Бағалар жаңартылды!",
+        nextUpdateText: "Келесі тексеру:",
+        lastUpdate: "Соңғы:",
+        btnCheckNow: "Қазір тексеру",
+        
+        priceChangesTitle: "📊 Баға өзгерістері",
+        priceChangesSub: "Соңғы тексерістен бері бәсекелестердің бағалары қалай өзгерді",
+        alertTrendDown: "Минималды баға <b>{old} ₸</b>-нан <b>{new} ₸</b>-ға түсті.",
+        alertTrendUp: "Минималды баға <b>{old} ₸</b>-нан <b>{new} ₸</b>-ға өсті."
     },
     ru: {
         systemActive: "● Система активна",
@@ -119,6 +172,7 @@ const translations = {
         chartLegendMine: "Ваша цена ( Almaty Mobile )",
         chartLegendLowest: "Минимальная цена (Лидер рынка)",
         btnRefresh: "Обновить",
+        
         myProductsTitle: "📦 Мои товары",
         myProductsSub: "Список отслеживаемых товаров, средняя цена конкурентов и разница %",
         btnAddProduct: "Добавить товар",
@@ -127,13 +181,16 @@ const translations = {
         lblCostPrice: "Себестоимость (₸)",
         btnSave: "Сохранить",
         btnCancel: "Отмена",
+        
         thProductName: "Название товара",
-        thSellerPrice: "Цена селлера",
+        thSellerPrice: "Цена продавца",
         thCompPrices: "Цены конкурентов",
         thMinPrice: "Мин. цена",
         thAvgPrice: "Средняя цена",
         thDiffPct: "Разница %",
         thActions: "Действие",
+        thAIAnalysis: "AI Анализ",
+        thHistory: "История",
         btnDelete: "Удалить",
         footerText: "SellerAI Platform © 2026 — Аналитическая система Kaspi.kz, Wildberries, Ozon & Yandex Market",
         tagLeader: "👑 Лидер",
@@ -148,7 +205,56 @@ const translations = {
         alertAnalysisDone: "✅ Данные конкурентов обновлены! Оптимальная цена и маржа пересчитаны.",
         alertPriceApplied: "✅ Новая цена ({price} ₸) успешно принята! Маржа и показатели пересчитаны.",
         alertProductAdded: "✅ Товар \"{name}\" успешно добавлен!",
-        alertTgMsg: "📱 Уведомление Telegram Bot отправлено:\n\n\"⚠️ SellerAI Alert: Конкурент снизил цену до 389 000 ₸. Для 1-го места рекомендуемая цена: 389 000 ₸\""
+        alertTgMsg: "📱 Уведомление Telegram Bot отправлено:\n\n\"⚠️ SellerAI Alert: Конкурент снизил цену до 389 000 ₸. Для 1-го места рекомендуемая цена: 389 000 ₸\"",
+        
+        // Auth UI
+        btnLogout: "Выйти",
+        authTitleLogin: "Войти",
+        authTitleRegister: "Регистрация",
+        authSubtitle: "Добро пожаловать в SellerAI",
+        authFullName: "ФИО",
+        authFullNamePlaceholder: "Ваше имя",
+        authPassword: "Пароль",
+        authSubmitBtn: "Войти",
+        authSubmitBtnRegister: "Зарегистрироваться",
+        authWait: "Подождите...",
+        authNoAccount: "Нет аккаунта?",
+        authHasAccount: "Есть аккаунт?",
+        authActionRegister: "Зарегистрироваться",
+        authActionLogin: "Войти",
+        
+        // Auto update UI & Price Changes
+        autoUpdateTitle: "Авто-обновление",
+        autoUpdateSub: "Проверять цены каждые 30 минут",
+                statusOn: "Включено",
+        statusOff: "Выключено",
+        badgeOk: "✅ Реальные данные",
+        badgeManual: "✏️ Вручную",
+        badgeNoData: "⚠️ Нет данных",
+        badgeApiReq: "🔑 Нужен API",
+        loadingText: "Загрузка...",
+        loadingHistory: "Загрузка истории...",
+        emptyHistory: "У этого товара еще нет истории цен.",
+        historyTitle: "История (последние проверки)",
+        thTime: "Время",
+        thMyPrice: "Моя цена",
+        thMinComp: "Мин. конкурент",
+        thAvgPrice: "Средняя цена",
+        thComps: "Конкуренты",
+        thTrend: "Тренд",
+        trendUp: "↑ Выросла",
+        trendDown: "↓ Упала",
+        trendStable: "= Без изменений",
+        updatingText: "Обновление...",
+        updatedText: "Цены обновлены!",
+        nextUpdateText: "Следующая проверка:",
+        lastUpdate: "Последняя:",
+        btnCheckNow: "Проверить сейчас",
+        
+        priceChangesTitle: "📊 Изменения цен",
+        priceChangesSub: "Как изменились цены конкурентов с последней проверки",
+        alertTrendDown: "Минимальная цена упала с <b>{old} ₸</b> до <b>{new} ₸</b>.",
+        alertTrendUp: "Минимальная цена выросла с <b>{old} ₸</b> до <b>{new} ₸</b>."
     },
     en: {
         systemActive: "● System Active",
@@ -193,6 +299,7 @@ const translations = {
         chartLegendMine: "Your Price ( Almaty Mobile )",
         chartLegendLowest: "Lowest Price (Market Leader)",
         btnRefresh: "Refresh",
+        
         myProductsTitle: "📦 My Products",
         myProductsSub: "Tracked products list, competitor average prices, and difference %",
         btnAddProduct: "Add Product",
@@ -201,6 +308,7 @@ const translations = {
         lblCostPrice: "Cost Price (₸)",
         btnSave: "Save",
         btnCancel: "Cancel",
+        
         thProductName: "Product Name",
         thSellerPrice: "Seller Price",
         thCompPrices: "Competitor Prices",
@@ -208,6 +316,8 @@ const translations = {
         thAvgPrice: "Avg Price",
         thDiffPct: "Diff %",
         thActions: "Actions",
+        thAIAnalysis: "AI Analysis",
+        thHistory: "History",
         btnDelete: "Delete",
         footerText: "SellerAI Platform © 2026 — Kaspi.kz, Wildberries, Ozon & Yandex Market Analytics Platform",
         tagLeader: "👑 Leader",
@@ -222,7 +332,56 @@ const translations = {
         alertAnalysisDone: "✅ Competitor data updated! Optimal price and margins recalculated.",
         alertPriceApplied: "✅ New price ({price} ₸) successfully applied! Margins updated.",
         alertProductAdded: "✅ Product \"{name}\" successfully added!",
-        alertTgMsg: "📱 Telegram Bot alert sent:\n\n\"⚠️ SellerAI Alert: Competitor dropped price to 389,000 ₸. Recommended #1 price: 389,000 ₸\""
+        alertTgMsg: "📱 Telegram Bot alert sent:\n\n\"⚠️ SellerAI Alert: Competitor dropped price to 389,000 ₸. Recommended #1 price: 389,000 ₸\"",
+        
+        // Auth UI
+        btnLogout: "Logout",
+        authTitleLogin: "Login",
+        authTitleRegister: "Register",
+        authSubtitle: "Welcome to SellerAI",
+        authFullName: "Full Name",
+        authFullNamePlaceholder: "Your Name",
+        authPassword: "Password",
+        authSubmitBtn: "Login",
+        authSubmitBtnRegister: "Register",
+        authWait: "Please wait...",
+        authNoAccount: "Don't have an account?",
+        authHasAccount: "Already have an account?",
+        authActionRegister: "Register",
+        authActionLogin: "Login",
+        
+        // Auto update UI & Price Changes
+        autoUpdateTitle: "Auto-Update",
+        autoUpdateSub: "Check prices every 30 minutes",
+                statusOn: "Enabled",
+        statusOff: "Disabled",
+        badgeOk: "✅ Real Data",
+        badgeManual: "✏️ Manual",
+        badgeNoData: "⚠️ No Data",
+        badgeApiReq: "🔑 API Required",
+        loadingText: "Loading...",
+        loadingHistory: "Loading history...",
+        emptyHistory: "No price history for this product yet.",
+        historyTitle: "History (latest checks)",
+        thTime: "Time",
+        thMyPrice: "My Price",
+        thMinComp: "Min Comp",
+        thAvgPrice: "Avg Price",
+        thComps: "Competitors",
+        thTrend: "Trend",
+        trendUp: "↑ Up",
+        trendDown: "↓ Down",
+        trendStable: "= Stable",
+        updatingText: "Updating...",
+        updatedText: "Prices updated!",
+        nextUpdateText: "Next check:",
+        lastUpdate: "Last:",
+        btnCheckNow: "Check Now",
+        
+        priceChangesTitle: "📊 Price Changes",
+        priceChangesSub: "How competitor prices changed since last check",
+        alertTrendDown: "Minimum price dropped from <b>{old} ₸</b> to <b>{new} ₸</b>.",
+        alertTrendUp: "Minimum price increased from <b>{old} ₸</b> to <b>{new} ₸</b>."
     }
 };
 
@@ -263,7 +422,7 @@ function setLanguage(lang) {
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         if (t[key]) {
-            el.innerText = t[key];
+            el.innerHTML = t[key];
         }
     });
 
@@ -286,6 +445,32 @@ function setLanguage(lang) {
         if (typeof renderChart === 'function') renderChart(window.currentCompetitors, window.currentMyPrice);
     }
     if (typeof renderMyProducts === 'function') renderMyProducts();
+    if (typeof updateAuthUIText === 'function') updateAuthUIText();
+
+    const autoCheckToggle = document.getElementById('autoCheckToggle');
+    const autoCheckStatusText = document.getElementById('autoCheckStatusText');
+    if (autoCheckToggle && autoCheckStatusText && autoCheckStatusText.textContent !== t.authWait) {
+        autoCheckStatusText.textContent = autoCheckToggle.checked ? t.statusOn : t.statusOff;
+    }
+}
+
+function updateAuthUIText() {
+    const t = translations[currentLang] || translations.kk;
+    const isLoginMode = window.isLoginMode !== undefined ? window.isLoginMode : true;
+    const titleEl = document.getElementById('authTitle');
+    const btnEl = document.getElementById('authSubmitBtn');
+    const toggleEl = document.getElementById('authToggleText');
+    
+    if (titleEl) titleEl.innerText = isLoginMode ? t.authTitleLogin : t.authTitleRegister;
+    if (btnEl && !btnEl.disabled) btnEl.innerText = isLoginMode ? t.authSubmitBtn : t.authSubmitBtnRegister;
+    
+    if (toggleEl) {
+        if (isLoginMode) {
+            toggleEl.innerHTML = `${t.authNoAccount} <a href="#" onclick="toggleAuthMode(event)" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">${t.authActionRegister}</a>`;
+        } else {
+            toggleEl.innerHTML = `${t.authHasAccount} <a href="#" onclick="toggleAuthMode(event)" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">${t.authActionLogin}</a>`;
+        }
+    }
 }
 
 function updateTrendText(avg) {

@@ -13,15 +13,18 @@ from app.config import settings
 from app.database import get_db, engine, Base
 from app.models import User, Product, PriceHistory, AIRecommendation, Offer, PricingRecommendationDB, PriceChange
 from app.schemas import (
-    ProductCreate, CustomProductCreate, ProductResponse, CompetitorOffer,
-    ProductHistoryResponse, PriceHistoryItem, AIRecommendationOut,
+    UserCreate, UserLogin, Token, UserOut,
+    ProductCreate, CustomProductCreate, AddProductRequest, ProductResponse, CompetitorOffer,
+    AIRecommendationOut,
     PricingRecommendRequest, PricingRecommendResponse, PricingApplyRequest, PricingApplyResponse,
     MarketStatsSchema, PricingStatsSchema, PositionStatsSchema,
     ProductAnalyzeRequest, ProductAnalyzeResponse
 )
+from app.auth import get_password_hash, verify_password, create_access_token, get_current_user
 from app.services.parser import UnifiedMarketplaceRouter, KaspiParser
 from app.services.ai_advisor import AIAdvisorService
 from app.services.pricing_engine import PricingEngine
+from app.scheduler import start_scheduler, get_scheduler_status, toggle_scheduler
 import json
 
 # Logging
@@ -39,6 +42,11 @@ app = FastAPI(
     version=settings.VERSION,
     description="SellerAI: Көп маркетплейстік (Kaspi, WB, Ozon, Yandex) баға мониторингі, бәсекелестер талдауы және AI кеңес беру платформасы"
 )
+
+@app.on_event("startup")
+def on_startup():
+    start_scheduler()
+
 
 # Enable CORS for frontend UI
 app.add_middleware(
@@ -72,19 +80,58 @@ def read_index():
         return FileResponse(index_file)
     return FileResponse("index.html")
 
-def get_or_create_default_user(db: Session) -> User:
-    """MVP сынақ қолданушысын алу немесе құру"""
-    user = db.query(User).first()
-    if not user:
-        user = User(
-            email="seller@sellerai.kz",
-            full_name="Тест Селлер",
-            tariff_plan="pro"
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    return user
+@app.post("/api/v1/auth/register", response_model=UserOut, tags=["Auth"])
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Бұл email тіркелген.")
+    new_user = User(
+        email=user.email,
+        full_name=user.full_name,
+        hashed_password=get_password_hash(user.password)
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+@app.post("/api/v1/auth/login", response_model=Token, tags=["Auth"])
+def login(user: UserLogin, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user.email).first()
+    if not db_user or not verify_password(user.password, db_user.hashed_password):
+        raise HTTPException(status_code=401, detail="Қате email немесе құпия сөз.")
+    
+    access_token = create_access_token(data={"sub": str(db_user.id)})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/v1/auth/me", response_model=UserOut, tags=["Auth"])
+def read_users_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+def _get_marketplace_status(mp_type: str, product_url: str, has_offers: bool) -> dict:
+    """Маркетплейс парсинг статусын анықтау"""
+    if product_url.startswith("custom://"):
+        return {
+            "status": "manual",
+            "detail": "Қолмен қосылды. Маркетплейс сілтемесі берілмеген."
+        }
+    if mp_type in ["ozon", "yandex_market"]:
+        api_name = "Ozon Seller API (api-seller.ozon.ru)" if mp_type == "ozon" else "Yandex Market Partner API"
+        return {
+            "status": "api_required",
+            "detail": f"Нақты бағалар үшін {api_name} токені қажет."
+        }
+    if has_offers:
+        return {
+            "status": "ok",
+            "detail": "Нақты маркетплейс деректері."
+        }
+    return {
+        "status": "no_data",
+        "detail": "Бәсекелес деректері алынбады. URL-ді тексеріңіз немесе қайта талдаңыз."
+    }
+
 
 @app.get("/health", tags=["System"])
 def health_check():
@@ -96,14 +143,14 @@ def health_check():
     }
 
 @app.post("/api/v1/products/add", response_model=ProductResponse, tags=["Products & Parsing"])
-def add_product(payload: ProductCreate, db: Session = Depends(get_db)):
+def add_product(payload: ProductCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     1. Тауар сілтемесін немесе SKU қабылдайды (Kaspi / Wildberries / Ozon)
     2. Маркетплейсті автоматты анықтап, бәсекелестер бағасын жинайды
     3. Деректерді PostgreSQL базасына (products, price_history) жазады
     4. AI арқылы талдау жасап, кеңес шығарады
     """
-    user = get_or_create_default_user(db)
+    user = current_user
     
     # 1. URL / ID парсинг және маркетплейсті анықтау
     mp_type, sku_id, guessed_name = UnifiedMarketplaceRouter.extract_info(payload.product_url)
@@ -224,15 +271,14 @@ def add_product(payload: ProductCreate, db: Session = Depends(get_db)):
     )
 
 @app.post("/api/v1/products/create_custom", response_model=ProductResponse, tags=["Products & Parsing"])
-def create_custom_product(payload: CustomProductCreate, db: Session = Depends(get_db)):
+def create_custom_product(payload: CustomProductCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
-    Пайдаланушы енгізген атауы мен сату бағасы бойынша жаңа тауар қосу
-    Бәсекелестердің тестовый деректерін құрып, мин, орташа баға мен % айырманы есептейді
+    Пайдаланушы енгізген атауы мен сату бағасы бойынша жаңа тауар қосу.
+    Бәсекелестер тіркелмейді — тек нақты парсинг немесе URL арқылы толтырылады.
     """
-    import random
-    user = get_or_create_default_user(db)
+    user = current_user
     sku_id = str(int(datetime.utcnow().timestamp()))
-    
+
     product = Product(
         user_id=user.id,
         product_url=f"custom://product/{sku_id}",
@@ -249,62 +295,34 @@ def create_custom_product(payload: CustomProductCreate, db: Session = Depends(ge
     db.refresh(product)
 
     my_price = float(payload.my_price)
-    my_shop = payload.my_shop_name or "Almaty Mobile"
-    competitors_seed = ["TechnoStore KZ", "Sulpak", "Mechta.kz", "Technodom", "SmartSeller KZ"]
+    my_shop = payload.my_shop_name or ""
 
-    raw_offers = [
-        {
-            "seller_name": my_shop,
-            "price": my_price,
-            "is_my_shop": True,
-            "is_available": True,
-            "delivery_type": "Экспресс 3 сағ",
-            "rating": 4.9,
-            "reviews_count": 150
-        }
-    ]
+    # Тек өзінің бағасын тарихқа жазамыз, random бәсекелестер жасамаймыз
+    my_offer = CompetitorOffer(
+        seller_name=my_shop or payload.product_name,
+        price=my_price,
+        is_my_shop=True,
+        is_available=True,
+        delivery_type=None,
+        rating=None,
+        reviews_count=None
+    )
+    db.add(PriceHistory(
+        product_id=product.id,
+        seller_name=my_offer.seller_name,
+        is_my_shop=True,
+        price=my_price,
+        is_available=True,
+        recorded_at=datetime.utcnow()
+    ))
+    db.commit()
 
-    deltas = [-random.choice([1000, 2000, 3500]), random.choice([1200, 2800]), random.choice([4000, 5500]), random.choice([7000, 9500])]
-    for name, delta in zip(competitors_seed[:4], deltas):
-        comp_price = float(max(my_price + delta, 1000.0))
-        raw_offers.append({
-            "seller_name": name,
-            "price": comp_price,
-            "is_my_shop": False,
-            "is_available": True,
-            "delivery_type": random.choice(["Бүгін", "Ертең", "Kaspi Доставка"]),
-            "rating": round(random.uniform(4.5, 4.9), 1),
-            "reviews_count": random.randint(25, 420)
-        })
-
-    raw_offers.sort(key=lambda x: x["price"])
-
-    competitor_offers_out = []
-    for item in raw_offers:
-        history_record = PriceHistory(
-            product_id=product.id,
-            seller_name=item["seller_name"],
-            is_my_shop=item["is_my_shop"],
-            price=item["price"],
-            is_available=item["is_available"],
-            delivery_type=item.get("delivery_type"),
-            recorded_at=datetime.utcnow()
-        )
-        db.add(history_record)
-        competitor_offers_out.append(CompetitorOffer(**item))
-
-    prices_list = [o.price for o in competitor_offers_out]
-    lowest_price = min(prices_list) if prices_list else my_price
-    avg_price = round(sum(prices_list) / len(prices_list), 2) if prices_list else my_price
-    diff_percent = round(((my_price - lowest_price) / lowest_price) * 100, 2) if lowest_price > 0 else 0.0
-
-    raw_offers_dict = [o.model_dump() for o in competitor_offers_out]
     ai_result = AIAdvisorService.generate_recommendation(
         product_name=product.product_name,
         my_price=my_price,
-        cost_price=payload.cost_price,
-        min_price=payload.min_price_threshold,
-        competitor_offers=raw_offers_dict
+        cost_price=float(payload.cost_price) if payload.cost_price else None,
+        min_price=float(payload.min_price_threshold) if payload.min_price_threshold else None,
+        competitor_offers=[my_offer.model_dump()]
     )
 
     ai_record = AIRecommendation(
@@ -326,12 +344,12 @@ def create_custom_product(payload: CustomProductCreate, db: Session = Depends(ge
         cost_price=float(product.cost_price) if product.cost_price else None,
         current_price=float(product.current_price) if product.current_price else None,
         min_price_threshold=float(product.min_price_threshold) if product.min_price_threshold else None,
-        lowest_competitor_price=lowest_price,
-        average_competitor_price=avg_price,
-        price_diff_percent=diff_percent,
-        competitor_prices_list=prices_list,
-        competitors_count=len(competitor_offers_out),
-        latest_offers=competitor_offers_out,
+        lowest_competitor_price=my_price,
+        average_competitor_price=my_price,
+        price_diff_percent=0.0,
+        competitor_prices_list=[my_price],
+        competitors_count=0,
+        latest_offers=[my_offer],
         latest_recommendation=AIRecommendationOut(
             alert_type=ai_record.alert_type,
             recommended_price=float(ai_record.recommended_price) if ai_record.recommended_price else None,
@@ -341,55 +359,204 @@ def create_custom_product(payload: CustomProductCreate, db: Session = Depends(ge
         last_checked_at=product.last_checked_at
     )
 
-@app.get("/api/v1/products/{product_id}/history", response_model=ProductHistoryResponse, tags=["Analytics"])
-def get_product_history(product_id: int, db: Session = Depends(get_db)):
+from collections import defaultdict
+from app.schemas import ProductHistoryDetailedResponse, PriceHistorySession, PriceChangeAlert
+
+@app.get("/api/v1/products/{product_id}/history", response_model=ProductHistoryDetailedResponse, tags=["Analytics"])
+def get_product_history(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
-    Тауар бойынша бәсекелестер бағасының өзгеру тарихын шығару (График үшін)
+    Тауар бойынша бәсекелестер бағасының өзгеру тарихын шығару (Топтастырылған)
     """
-    product = db.query(Product).filter(Product.id == product_id).first()
+    user = current_user
+    product = db.query(Product).filter(Product.id == product_id, Product.user_id == user.id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Тауар табылмады")
 
-    history_records = db.query(PriceHistory).filter(
-        PriceHistory.product_id == product_id
-    ).order_by(desc(PriceHistory.recorded_at)).limit(50).all()
-
-    items = [
-        PriceHistoryItem(
-            id=rec.id,
-            seller_name=rec.seller_name,
-            is_my_shop=rec.is_my_shop,
-            price=float(rec.price),
-            is_available=rec.is_available,
-            delivery_type=rec.delivery_type,
-            recorded_at=rec.recorded_at
-        ) for rec in history_records
-    ]
-
-    return ProductHistoryResponse(
+    records = db.query(PriceHistory).filter(PriceHistory.product_id == product.id).order_by(desc(PriceHistory.recorded_at)).all()
+    
+    sessions_dict = defaultdict(list)
+    for r in records:
+        key = r.recorded_at.strftime("%Y-%m-%d %H:%M")
+        sessions_dict[key].append(r)
+        
+    sessions = []
+    sorted_keys = list(sessions_dict.keys())
+    
+    for i, key in enumerate(sorted_keys):
+        batch = sessions_dict[key]
+        my_price = next((float(x.price) for x in batch if x.is_my_shop), None)
+        comp_prices = [float(x.price) for x in batch if not x.is_my_shop]
+        min_p = min(comp_prices) if comp_prices else None
+        avg_p = sum(comp_prices)/len(comp_prices) if comp_prices else None
+        
+        trend = "none"
+        diff_val = None
+        if i + 1 < len(sorted_keys) and min_p is not None:
+            older_batch = sessions_dict[sorted_keys[i+1]]
+            older_comp = [float(x.price) for x in older_batch if not x.is_my_shop]
+            older_min = min(older_comp) if older_comp else None
+            if older_min is not None:
+                if min_p > older_min:
+                    trend = "up"
+                    diff_val = min_p - older_min
+                elif min_p < older_min:
+                    trend = "down"
+                    diff_val = older_min - min_p
+                else:
+                    trend = "stable"
+                    
+        sessions.append(PriceHistorySession(
+            session_time=batch[0].recorded_at,
+            my_price=my_price,
+            min_price=min_p,
+            avg_price=avg_p,
+            competitor_count=len(comp_prices),
+            trend=trend,
+            diff_from_previous=diff_val
+        ))
+        
+    return ProductHistoryDetailedResponse(
         product_id=product.id,
         product_name=product.product_name,
-        sku=product.sku,
-        history=items
+        sessions=sessions
     )
 
-@app.get("/api/v1/products", response_model=List[ProductResponse], tags=["Products & Parsing"])
-def list_products(db: Session = Depends(get_db)):
+@app.post("/api/v1/products/{product_id}/refresh", response_model=dict, tags=["Products & Parsing"])
+def refresh_product_prices(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
-    Барлық бақылаудағы тауарлар тізімін алу
+    Тауар бағаларын қолмен (қайта) парсинг жасап жаңарту
     """
-    user = get_or_create_default_user(db)
+    user = current_user
+    product = db.query(Product).filter(Product.id == product_id, Product.user_id == user.id).first()
+    if not product: raise HTTPException(status_code=404, detail="Тауар табылмады")
+    if not product.product_url or product.product_url.startswith("custom://"):
+        return {"status": "manual", "message": "Бұл қолмен қосылған тауар, автожаңарту мүмкін емес."}
+        
+    try:
+        mp_type, sku_id, _ = UnifiedMarketplaceRouter.extract_info(product.product_url)
+        offers = UnifiedMarketplaceRouter.fetch_offers(mp_type, sku_id)
+        
+        my_shop_record = db.query(PriceHistory).filter(PriceHistory.product_id == product.id, PriceHistory.is_my_shop == True).first()
+        my_shop_name = my_shop_record.seller_name.lower() if my_shop_record else ""
+        
+        now = datetime.utcnow()
+        current_my_price = None
+        for item in offers:
+            is_mine = bool(my_shop_name and item["seller_name"].lower() == my_shop_name)
+            if is_mine: current_my_price = item["price"]
+            db.add(PriceHistory(
+                product_id=product.id,
+                seller_name=item["seller_name"],
+                is_my_shop=is_mine,
+                price=item["price"],
+                is_available=item.get("is_available", True),
+                delivery_type=item.get("delivery_type"),
+                recorded_at=now
+            ))
+        product.last_checked_at = now
+        if current_my_price: product.current_price = current_my_price
+        db.commit()
+        return {"status": "ok", "message": f"{len(offers)} бәсекелес табылды және жаңартылды."}
+    except Exception as e:
+        logger.error(f"Refresh Error: {e}")
+        return {"status": "error", "message": "Маркетплейстен дерек алу мүмкін болмады."}
+
+@app.post("/api/v1/products/refresh-all", response_model=dict, tags=["Products & Parsing"])
+def refresh_all_prices(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user = current_user
     products = db.query(Product).filter(Product.user_id == user.id).all()
-    results = []
+    updated = 0
+    for p in products:
+        if p.product_url and not p.product_url.startswith("custom://"):
+            try:
+                mp_type, sku_id, _ = UnifiedMarketplaceRouter.extract_info(p.product_url)
+                offers = UnifiedMarketplaceRouter.fetch_offers(mp_type, sku_id)
+                if not offers: continue
+                my_shop_record = db.query(PriceHistory).filter(PriceHistory.product_id == p.id, PriceHistory.is_my_shop == True).first()
+                my_shop_name = my_shop_record.seller_name.lower() if my_shop_record else ""
+                now = datetime.utcnow()
+                curr_my = None
+                for item in offers:
+                    is_mine = bool(my_shop_name and item["seller_name"].lower() == my_shop_name)
+                    if is_mine: curr_my = item["price"]
+                    db.add(PriceHistory(
+                        product_id=p.id, seller_name=item["seller_name"], is_my_shop=is_mine,
+                        price=item["price"], recorded_at=now
+                    ))
+                p.last_checked_at = now
+                if curr_my: p.current_price = curr_my
+                updated += 1
+            except Exception:
+                pass
+    db.commit()
+    return {"status": "ok", "message": f"{updated} тауардың бағалары жаңартылды."}
+
+@app.get("/api/v1/scheduler/status", tags=["Scheduler"])
+def scheduler_status():
+    return get_scheduler_status()
+
+@app.post("/api/v1/scheduler/toggle", tags=["Scheduler"])
+def scheduler_toggle():
+    return toggle_scheduler()
+
+@app.get("/api/v1/dashboard/price-changes", response_model=List[PriceChangeAlert], tags=["Analytics"])
+def get_dashboard_price_changes(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Дашбордқа арналған соңғы баға өзгерістері (Екі соңғы сессияны салыстыру арқылы)
+    """
+    user = current_user
+    products = db.query(Product).filter(Product.user_id == user.id).all()
     
+    alerts = []
+    for p in products:
+        # get history sessions
+        records = db.query(PriceHistory).filter(PriceHistory.product_id == p.id).order_by(desc(PriceHistory.recorded_at)).all()
+        sessions_dict = defaultdict(list)
+        for r in records:
+            sessions_dict[r.recorded_at.strftime("%Y-%m-%d %H:%M")].append(r)
+        
+        sorted_keys = list(sessions_dict.keys())
+        if len(sorted_keys) >= 2:
+            latest = sessions_dict[sorted_keys[0]]
+            older = sessions_dict[sorted_keys[1]]
+            
+            latest_min = min([float(x.price) for x in latest if not x.is_my_shop], default=None)
+            older_min = min([float(x.price) for x in older if not x.is_my_shop], default=None)
+            
+            if latest_min is not None and older_min is not None and latest_min != older_min:
+                trend = "down" if latest_min < older_min else "up"
+                alerts.append(PriceChangeAlert(
+                    product_id=p.id,
+                    product_name=p.product_name or f"Тауар #{p.id}",
+                    product_url=p.product_url,
+                    old_min_price=older_min,
+                    new_min_price=latest_min,
+                    trend=trend,
+                    changed_at=latest[0].recorded_at
+                ))
+                
+    # Sort alerts by date desc
+    alerts.sort(key=lambda x: x.changed_at, reverse=True)
+    return alerts[:10]
+
+
+@app.get("/api/v1/products", response_model=List[ProductResponse], tags=["Products & Parsing"])
+def list_products(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Барлық бақылаудағы тауарлар тізімін алу (marketplace_status серпе кіреді)
+    """
+    user = current_user
+    products = db.query(Product).filter(Product.user_id == user.id).order_by(desc(Product.created_at)).all()
+    results = []
+
     for p in products:
         latest_rec = db.query(AIRecommendation).filter(
             AIRecommendation.product_id == p.id
         ).order_by(desc(AIRecommendation.created_at)).first()
-        
+
         latest_history = db.query(PriceHistory).filter(
             PriceHistory.product_id == p.id
-        ).order_by(desc(PriceHistory.recorded_at)).limit(10).all()
+        ).order_by(desc(PriceHistory.recorded_at)).limit(20).all()
 
         offers = [
             CompetitorOffer(
@@ -400,27 +567,41 @@ def list_products(db: Session = Depends(get_db)):
                 delivery_type=h.delivery_type
             ) for h in latest_history
         ]
-        
-        prices_list = [o.price for o in offers]
-        lowest = min(prices_list) if prices_list else None
-        avg_price = round(sum(prices_list) / len(prices_list), 2) if prices_list else None
-        my_price = float(p.current_price) if p.current_price else (lowest or 0.0)
-        diff_percent = round(((my_price - lowest) / lowest) * 100, 2) if (lowest and lowest > 0) else 0.0
+
+        # Менің бағам — is_my_shop=True жазбасынан аламыз
+        my_price_from_history = next((float(h.price) for h in latest_history if h.is_my_shop), None)
+        my_price = my_price_from_history or (float(p.current_price) if p.current_price else 0.0)
+
+        # Бәсекелестер бағалары — is_my_shop=False жазбасы
+        comp_prices = [float(h.price) for h in latest_history if not h.is_my_shop]
+        lowest = min(comp_prices) if comp_prices else None
+        avg_price = round(sum(comp_prices) / len(comp_prices), 2) if comp_prices else None
+        diff_pct = round(((my_price - lowest) / lowest) * 100, 2) if (lowest and lowest > 0) else 0.0
+
+        # Маркетплейс статусы
+        mp_info = _get_marketplace_status(
+            mp_type=p.marketplace or "",
+            product_url=p.product_url or "",
+            has_offers=len(comp_prices) > 0
+        )
 
         results.append(ProductResponse(
             id=p.id,
             product_name=p.product_name,
             sku=p.sku,
             product_url=p.product_url,
+            marketplace=p.marketplace,
             cost_price=float(p.cost_price) if p.cost_price else None,
-            current_price=float(p.current_price) if p.current_price else None,
+            current_price=my_price if my_price else None,
             min_price_threshold=float(p.min_price_threshold) if p.min_price_threshold else None,
             lowest_competitor_price=lowest,
             average_competitor_price=avg_price,
-            price_diff_percent=diff_percent,
-            competitor_prices_list=prices_list,
-            competitors_count=len(offers),
+            price_diff_percent=diff_pct,
+            competitor_prices_list=comp_prices,
+            competitors_count=len(comp_prices),
             latest_offers=offers,
+            marketplace_status=mp_info["status"],
+            marketplace_status_detail=mp_info["detail"],
             latest_recommendation=AIRecommendationOut(
                 alert_type=latest_rec.alert_type,
                 recommended_price=float(latest_rec.recommended_price) if latest_rec.recommended_price else None,
@@ -432,10 +613,256 @@ def list_products(db: Session = Depends(get_db)):
 
     return results
 
+@app.get("/api/v1/products/{product_id}/ai-analysis", response_model=AIRecommendationOut, tags=["Products & Parsing"])
+def get_ai_analysis(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Нақты тауар бойынша AI анализін генерациялау (немесе бәсекелес болмаса 'no_data' қайтару)
+    """
+    user = current_user
+    
+    product = db.query(Product).filter(
+        Product.id == product_id,
+        Product.user_id == user.id
+    ).first()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Тауар табылмады")
+
+    # Соңғы бәсекелес бағаларын алу
+    latest_history = db.query(PriceHistory).filter(
+        PriceHistory.product_id == product.id
+    ).order_by(desc(PriceHistory.recorded_at)).limit(20).all()
+
+    my_price = None
+    competitor_offers = []
+    
+    for h in latest_history:
+        if h.is_my_shop:
+            my_price = float(h.price)
+        else:
+            competitor_offers.append({
+                "seller_name": h.seller_name,
+                "price": float(h.price)
+            })
+            
+    if not my_price and product.current_price:
+        my_price = float(product.current_price)
+
+    if not competitor_offers:
+        # Бәсекелестер жоқ болса
+        return AIRecommendationOut(
+            alert_type="NO_DATA",
+            recommended_price=my_price,
+            analysis_text="Бәсекелестер туралы деректер табылмады. Анализ жасау мүмкін емес.",
+            created_at=datetime.utcnow()
+        )
+
+    # Ең төменгі баға бойынша сұрыптау
+    competitor_offers.sort(key=lambda x: x["price"])
+
+    from app.services.ai_advisor import AIAdvisorService
+    advice = AIAdvisorService.generate_recommendation(
+        product_name=product.product_name or f"Тауар #{product.id}",
+        my_price=my_price,
+        cost_price=float(product.cost_price) if product.cost_price else None,
+        min_price=float(product.min_price_threshold) if product.min_price_threshold else None,
+        competitor_offers=competitor_offers
+    )
+
+    # Дерекқорға сақтау
+    rec = AIRecommendation(
+        product_id=product.id,
+        alert_type=advice["alert_type"],
+        recommended_price=advice["recommended_price"],
+        analysis_text=advice["analysis_text"]
+    )
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+
+    return AIRecommendationOut(
+        alert_type=rec.alert_type,
+        recommended_price=float(rec.recommended_price) if rec.recommended_price else None,
+        analysis_text=rec.analysis_text,
+        created_at=rec.created_at
+    )
+
+
+@app.patch("/api/v1/products/{product_id}/repricing", tags=["Products & Parsing"])
+def update_product_repricing(product_id: int, payload: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user = current_user
+    product = db.query(Product).filter(Product.id == product_id, Product.user_id == user.id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Тауар табылмады")
+    
+    if "is_auto_repricing" in payload:
+        product.is_auto_repricing = payload["is_auto_repricing"]
+    if "min_price_threshold" in payload:
+        product.min_price_threshold = payload["min_price_threshold"]
+    
+    db.commit()
+    return {"status": "ok", "message": "Авто-реприцинг баптаулары сақталды!"}
+
+
+@app.post("/api/v1/products/add_with_url", response_model=ProductResponse, tags=["Products & Parsing"])
+def add_product_with_url(payload: AddProductRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Негізгі тауар қосу эндпойнті:
+    - Тауар аты + баға сақталады
+    - URL берілсе → нақты парсинг (Қаспи/WB) немесе честный API статус
+    - Нэтижеде marketplace_status флагы қайтарылады
+    """
+    user = current_user
+
+    marketplace_url = (payload.marketplace_url or "").strip()
+    my_price = float(payload.my_price)
+    my_shop = (payload.my_shop_name or "").strip()
+    live_offers = []
+    mp_type = "custom"
+    sku_id = str(int(datetime.utcnow().timestamp()))
+    product_url = f"custom://product/{sku_id}"
+
+    # URL берілсе — парсинг жасаймыз
+    if marketplace_url:
+        try:
+            mp_type, sku_id, guessed_name = UnifiedMarketplaceRouter.extract_info(marketplace_url)
+            product_url = marketplace_url
+        except Exception as e:
+            logger.warning(f"URL анықтау қатесі: {e}")
+            mp_type = "custom"
+            product_url = f"custom://product/{sku_id}"
+
+        if mp_type not in ["ozon", "yandex_market"]:
+            try:
+                live_offers = UnifiedMarketplaceRouter.fetch_offers(mp_type, sku_id)
+                logger.info(f"Нақты ұсыныстар: {len(live_offers)} жазба [{mp_type}]")
+            except Exception as e:
+                logger.warning(f"Parser қатесі: {e}")
+                live_offers = []
+
+    # Тауарды базаға сақтау (URL бойынша бұрын бар ма тексереміз)
+    existing = db.query(Product).filter(
+        Product.user_id == user.id,
+        Product.product_url == product_url
+    ).first()
+
+    if existing:
+        product = existing
+        product.product_name = payload.product_name
+        product.current_price = my_price
+        if payload.cost_price is not None:
+            product.cost_price = payload.cost_price
+        if payload.min_price_threshold is not None:
+            product.min_price_threshold = payload.min_price_threshold
+        if payload.is_auto_repricing is not None:
+            product.is_auto_repricing = payload.is_auto_repricing
+        product.last_checked_at = datetime.utcnow()
+    else:
+        product = Product(
+            user_id=user.id,
+            product_url=product_url,
+            marketplace=mp_type,
+            sku=sku_id,
+            product_name=payload.product_name,
+            cost_price=payload.cost_price,
+            min_price_threshold=payload.min_price_threshold,
+            is_auto_repricing=payload.is_auto_repricing,
+            current_price=my_price,
+            last_checked_at=datetime.utcnow()
+        )
+        db.add(product)
+    db.commit()
+    db.refresh(product)
+
+    # Менің бағамды тарихқа жазамыз
+    db.add(PriceHistory(
+        product_id=product.id,
+        seller_name=my_shop or payload.product_name,
+        is_my_shop=True,
+        price=my_price,
+        is_available=True,
+        recorded_at=datetime.utcnow()
+    ))
+
+    # Нақты бәсекелестерді тарихқа жазамыз
+    competitor_offers_out = []
+    for offer in live_offers:
+        is_mine = bool(my_shop and my_shop.lower() in offer["seller_name"].lower())
+        db.add(PriceHistory(
+            product_id=product.id,
+            seller_name=offer["seller_name"],
+            is_my_shop=is_mine,
+            price=offer["price"],
+            is_available=offer.get("is_available", True),
+            delivery_type=offer.get("delivery_type"),
+            recorded_at=datetime.utcnow()
+        ))
+        competitor_offers_out.append(CompetitorOffer(
+            seller_name=offer["seller_name"],
+            price=offer["price"],
+            is_my_shop=is_mine,
+            is_available=offer.get("is_available", True),
+            delivery_type=offer.get("delivery_type"),
+            rating=offer.get("rating"),
+            reviews_count=offer.get("reviews_count")
+        ))
+    db.commit()
+
+    # Баға статистикасы
+    comp_prices = [o.price for o in competitor_offers_out if not o.is_my_shop]
+    all_prices = [my_price] + comp_prices
+    lowest = min(comp_prices) if comp_prices else None
+    avg_p = round(sum(comp_prices) / len(comp_prices), 2) if comp_prices else None
+    diff_pct = round(((my_price - lowest) / lowest) * 100, 2) if (lowest and lowest > 0) else 0.0
+
+    mp_info = _get_marketplace_status(
+        mp_type=mp_type,
+        product_url=product_url,
+        has_offers=len(live_offers) > 0
+    )
+
+    return ProductResponse(
+        id=product.id,
+        product_name=product.product_name,
+        sku=product.sku,
+        product_url=product.product_url,
+        marketplace=product.marketplace,
+        cost_price=float(product.cost_price) if product.cost_price else None,
+        current_price=my_price,
+        min_price_threshold=None,
+        lowest_competitor_price=lowest,
+        average_competitor_price=avg_p,
+        price_diff_percent=diff_pct,
+        competitor_prices_list=comp_prices,
+        competitors_count=len(live_offers),
+        latest_offers=competitor_offers_out,
+        marketplace_status=mp_info["status"],
+        marketplace_status_detail=mp_info["detail"],
+        last_checked_at=product.last_checked_at
+    )
+
+
+@app.delete("/api/v1/products/{product_id}", tags=["Products & Parsing"])
+def delete_product(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Тауарды базадан жою (PriceHistory, AIRecommendation автоматты жойылады)
+    """
+    user = current_user
+    product = db.query(Product).filter(
+        Product.id == product_id,
+        Product.user_id == user.id
+    ).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Тауар табылмады")
+    name = product.product_name or f"#{product_id}"
+    db.delete(product)
+    db.commit()
+    return {"success": True, "message": f"«{name}» жойылды"}
+
 
 # --- Pricing Engine API Endpoints (Specification Sections 15 & 16) ---
 @app.post("/api/v1/pricing/recommend", response_model=PricingRecommendResponse, tags=["Pricing Engine"])
-def calculate_pricing_recommendation(payload: PricingRecommendRequest, db: Session = Depends(get_db)):
+def calculate_pricing_recommendation(payload: PricingRecommendRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     ТЗ Section 15: Умная рекомендация цены
     1. Получает актуальные предложения конкурентов для product_id
@@ -443,7 +870,7 @@ def calculate_pricing_recommendation(payload: PricingRecommendRequest, db: Sessi
     3. Сохраняет результат в таблицу pricing_recommendations
     4. Возвращает ответ со статистикой рынка, прибылью, позицией и объяснением
     """
-    user = get_or_create_default_user(db)
+    user = current_user
     
     product = db.query(Product).filter(Product.id == payload.product_id, Product.user_id == user.id).first()
     if not product:
@@ -491,11 +918,9 @@ def calculate_pricing_recommendation(payload: PricingRecommendRequest, db: Sessi
         ]
 
     if not offers_list:
-        sample_prices = [389000, 395000, 410000] if float(product.current_price or 399000) > 100000 else [9435, 12500, 13200]
-        offers_list = [
-            {"seller_id": f"s{i}", "seller_name": f"Competitor {i}", "price": p, "available": True, "is_mine": False, "collected_at": datetime.utcnow()}
-            for i, p in enumerate(sample_prices, 1)
-        ]
+        # Деректер жоқ болса — бос тізіммен жіберу, PricingEngine өз ережесімен жұмыс жасайды
+        logger.warning(f"No offer data found for product_id={payload.product_id}. Proceeding with empty offers list.")
+        offers_list = []
 
     current_price_val = float(product.current_price) if product.current_price else (offers_list[0]['price'] if offers_list else 100000.0)
 
@@ -542,99 +967,48 @@ def calculate_pricing_recommendation(payload: PricingRecommendRequest, db: Sessi
     )
 
 
-PRESETS_DATA = {
-    "iphone": {
-        "name": "Apple iPhone 15 128GB Black",
-        "marketplace": "kaspi",
-        "url": "https://kaspi.kz/shop/p/apple-iphone-15-128gb-chernyi-113137790/",
-        "my_price": 399000.0,
-        "cost_price": 340000.0,
-        "my_shop": "Almaty Mobile",
-        "competitors": [
-            {"name": "TechStore KZ", "price": 389000.0, "diff": -10000.0, "tag": "leader", "is_mine": False},
-            {"name": "AlFA Market", "price": 395000.0, "diff": -4000.0, "tag": "row", "is_mine": False},
-            {"name": "Almaty Mobile", "price": 399000.0, "diff": 0.0, "tag": "myStore", "is_mine": True},
-            {"name": "Sulpak Partner", "price": 410000.0, "diff": 11000.0, "tag": "expensive", "is_mine": False}
-        ]
-    },
-    "wildberries": {
-        "name": "Beauty Fox Сыворотка (WB)",
-        "marketplace": "wildberries",
-        "url": "https://www.wildberries.ru/catalog/211694533/detail.aspx",
-        "my_price": 11990.0,
-        "cost_price": 7500.0,
-        "my_shop": "Almaty Mobile (WB)",
-        "competitors": [
-            {"name": "Beauty Fox (WB)", "price": 9435.0, "diff": -2555.0, "tag": "leader", "is_mine": False},
-            {"name": "Almaty Mobile (WB)", "price": 11990.0, "diff": 0.0, "tag": "myStore", "is_mine": True},
-            {"name": "Top Cosmetic KZ", "price": 12500.0, "diff": 510.0, "tag": "row", "is_mine": False},
-            {"name": "Beauty Queen Store", "price": 13200.0, "diff": 1210.0, "tag": "expensive", "is_mine": False}
-        ]
-    },
-    "ozon": {
-        "name": "Apple iPhone 15 128GB (Ozon)",
-        "marketplace": "ozon",
-        "url": "https://www.ozon.ru/product/smartfon-apple-iphone-15-128-gb-128456123/",
-        "my_price": 405000.0,
-        "cost_price": 360000.0,
-        "my_shop": "Almaty Mobile",
-        "competitors": [
-            {"name": "Ozon Ритейл Казахстан", "price": 398000.0, "diff": -7000.0, "tag": "leader", "is_mine": False},
-            {"name": "Almaty Mobile", "price": 405000.0, "diff": 0.0, "tag": "myStore", "is_mine": True},
-            {"name": "iStore Global", "price": 412000.0, "diff": 7000.0, "tag": "row", "is_mine": False}
-        ]
-    },
-    "samsung": {
-        "name": "Samsung Galaxy S24 Ultra",
-        "marketplace": "kaspi",
-        "url": "https://kaspi.kz/shop/p/samsung-galaxy-s24-ultra-5g-12-gb-256-gb-seryi-116044354/",
-        "my_price": 519990.0,
-        "cost_price": 450000.0,
-        "my_shop": "Almaty Mobile",
-        "competitors": [
-            {"name": "TechnoStore KZ", "price": 494990.0, "diff": -25000.0, "tag": "leader", "is_mine": False},
-            {"name": "Almaty Mobile", "price": 519990.0, "diff": 0.0, "tag": "myStore", "is_mine": True},
-            {"name": "Sulpak", "price": 529990.0, "diff": 10000.0, "tag": "expensive", "is_mine": False}
-        ]
-    },
-    "airpods": {
-        "name": "Apple AirPods Pro 2 Type-C",
-        "marketplace": "kaspi",
-        "url": "https://kaspi.kz/shop/p/apple-airpods-pro-2-with-type-c-belyi-113677582/",
-        "my_price": 109990.0,
-        "cost_price": 85000.0,
-        "my_shop": "Almaty Mobile",
-        "competitors": [
-            {"name": "AudioPro Almaty", "price": 104919.0, "diff": -5071.0, "tag": "leader", "is_mine": False},
-            {"name": "Almaty Mobile", "price": 109990.0, "diff": 0.0, "tag": "myStore", "is_mine": True},
-            {"name": "Sulpak", "price": 114990.0, "diff": 5000.0, "tag": "expensive", "is_mine": False}
-        ]
-    }
-}
+# PRESETS_DATA жойылды — жүйе тек нақты парсер деректерін қолданады
 
 @app.post("/api/v1/products/analyze", response_model=ProductAnalyzeResponse, tags=["Analytics"])
-def analyze_product(payload: ProductAnalyzeRequest, db: Session = Depends(get_db)):
+def analyze_product(payload: ProductAnalyzeRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
-    Бэкенд серверінде тауар мен нарықты толық талдау (Backend-Calculated Analytics)
-    Бизнес-логика, баға динамикасы, маржа және PricingEngine барлығы БЭКЕНДТЕ есептеледі
+    Тауар мен нарықты нақты парсер арқылы толық талдау.
+    - Маркетплейс URL-інен парсинг жасалады
+    - Барлық бизнес-логика, маржа және PricingEngine БЭКЕНДТЕ есептеледі
+    - PRESETS_DATA жоқ — тек шынайы деректер
     """
-    user = get_or_create_default_user(db)
-    preset_key = payload.preset_key or "iphone"
-    preset = PRESETS_DATA.get(preset_key, PRESETS_DATA["iphone"])
+    user = current_user
 
-    my_price = payload.my_price or preset["my_price"]
-    cost_price = payload.cost_price or preset["cost_price"]
-    my_shop = payload.my_shop_name or preset["my_shop"]
-    product_url = payload.product_url or preset["url"]
+    product_url = payload.product_url or ""
+    my_price = payload.my_price
+    cost_price = payload.cost_price or 0.0
+    my_shop = payload.my_shop_name or ""
 
-    product = db.query(Product).filter(Product.user_id == user.id, Product.product_name == preset["name"]).first()
+    # URL жоқ болса — 400 қайтару
+    if not product_url:
+        raise HTTPException(status_code=400, detail="product_url міндетті. Маркетплейс сілтемесін енгізіңіз.")
+
+    # 1. Маркетплейсті анықтап, парсинг жасау
+    mp_type, sku_id, guessed_name = UnifiedMarketplaceRouter.extract_info(product_url)
+    logger.info(f"🔎 Анализ: [{mp_type.upper()}] SKU={sku_id} URL={product_url}")
+
+    live_offers = UnifiedMarketplaceRouter.fetch_offers(mp_type, sku_id)
+    logger.info(f"📦 Парсинг нәтижесі: {len(live_offers)} сатушы табылды")
+
+    # 2. Тауарды базадан алу немесе жасау
+    product = db.query(Product).filter(
+        Product.user_id == user.id,
+        Product.sku == sku_id,
+        Product.marketplace == mp_type
+    ).first()
+
     if not product:
         product = Product(
             user_id=user.id,
             product_url=product_url,
-            marketplace=preset["marketplace"],
-            sku=str(int(datetime.utcnow().timestamp())),
-            product_name=preset["name"],
+            marketplace=mp_type,
+            sku=sku_id,
+            product_name=guessed_name,
             cost_price=cost_price,
             current_price=my_price
         )
@@ -642,12 +1016,31 @@ def analyze_product(payload: ProductAnalyzeRequest, db: Session = Depends(get_db
         db.commit()
         db.refresh(product)
     else:
-        product.current_price = my_price
-        product.cost_price = cost_price
+        if my_price is not None:
+            product.current_price = my_price
+        if cost_price:
+            product.cost_price = cost_price
+        product.last_checked_at = datetime.utcnow()
         db.commit()
 
-    competitors = preset["competitors"]
-    prices = [c["price"] for c in competitors]
+    # 3. Бағаны анықтау: my_price берілмесе, дүкен атымен сәйкестендіру
+    if my_price is None:
+        my_price_found = None
+        if my_shop:
+            for off in live_offers:
+                if my_shop.lower() in off["seller_name"].lower():
+                    my_price_found = off["price"]
+                    break
+        my_price = my_price_found or (live_offers[0]["price"] if live_offers else 0.0)
+
+    if not live_offers:
+        raise HTTPException(
+            status_code=404,
+            detail=f"[{mp_type.upper()}] SKU '{sku_id}' бойынша бәсекелес деректері табылмады. URL дұрыс па?"
+        )
+
+    # 4. Нарық статистикасын есептеу
+    prices = [o["price"] for o in live_offers]
     min_price = min(prices)
     avg_price = round(sum(prices) / len(prices), 1)
     prices_sorted = sorted(prices)
@@ -668,6 +1061,7 @@ def analyze_product(payload: ProductAnalyzeRequest, db: Session = Depends(get_db
         trend_pct = 0.0
         trend_text = "~ Нарық деңгейінде"
 
+    # 5. Маржа есебі
     margin_percent = round(((my_price - cost_price) / my_price) * 100, 1) if my_price > 0 else 0.0
     if margin_percent >= 20:
         margin_status = "VERY_HIGH"
@@ -682,9 +1076,31 @@ def analyze_product(payload: ProductAnalyzeRequest, db: Session = Depends(get_db
         margin_status = "LOSS"
         margin_status_text = "⚠️ Тікелей шығын (Залал)"
 
+    # 6. Бағаны тарихқа жазу
+    for item in live_offers:
+        is_mine = my_shop and (my_shop.lower() in item["seller_name"].lower())
+        db.add(PriceHistory(
+            product_id=product.id,
+            seller_name=item["seller_name"],
+            is_my_shop=bool(is_mine),
+            price=item["price"],
+            is_available=item.get("is_available", True),
+            delivery_type=item.get("delivery_type"),
+            recorded_at=datetime.utcnow()
+        ))
+    db.commit()
+
+    # 7. PricingEngine ұсынысы
     engine_offers = [
-        {"seller_id": str(i), "seller_name": c["name"], "price": c["price"], "available": True, "is_mine": c["is_mine"], "collected_at": datetime.utcnow()}
-        for i, c in enumerate(competitors, 1)
+        {
+            "seller_id": str(i),
+            "seller_name": o["seller_name"],
+            "price": o["price"],
+            "available": o.get("is_available", True),
+            "is_mine": my_shop and (my_shop.lower() in o["seller_name"].lower()),
+            "collected_at": datetime.utcnow()
+        }
+        for i, o in enumerate(live_offers, 1)
     ]
 
     rec_result = PricingEngine.recommend(
@@ -712,19 +1128,33 @@ def analyze_product(payload: ProductAnalyzeRequest, db: Session = Depends(get_db
     db.commit()
     db.refresh(rec_db)
 
+    # 8. Frontend үшін бәсекелестер форматы
+    competitors_out = []
+    for o in live_offers:
+        is_mine = my_shop and (my_shop.lower() in o["seller_name"].lower())
+        diff = round(o["price"] - my_price, 1)
+        tag = "myStore" if is_mine else ("leader" if o["price"] == min_price else ("expensive" if o["price"] == max_price else "row"))
+        competitors_out.append({
+            "name": o["seller_name"],
+            "price": o["price"],
+            "diff": diff,
+            "tag": tag,
+            "is_mine": bool(is_mine)
+        })
+
     return ProductAnalyzeResponse(
         product={
             "id": product.id,
             "name": product.product_name,
             "current_price": my_price,
             "cost_price": cost_price,
-            "marketplace": preset["marketplace"],
+            "marketplace": mp_type,
             "my_shop": my_shop,
             "product_url": product_url
         },
         market={
-            "competitors": competitors,
-            "competitor_count": len(competitors),
+            "competitors": competitors_out,
+            "competitor_count": len(competitors_out),
             "min_price": min_price,
             "avg_price": avg_price,
             "median_price": median_price,
@@ -752,7 +1182,7 @@ def analyze_product(payload: ProductAnalyzeRequest, db: Session = Depends(get_db
     )
 
 @app.post("/api/v1/pricing/apply", response_model=PricingApplyResponse, tags=["Pricing Engine"])
-def apply_pricing_recommendation(payload: PricingApplyRequest, db: Session = Depends(get_db)):
+def apply_pricing_recommendation(payload: PricingApplyRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     ТЗ Section 16: API применения рекомендации
     1. Повторно проверяет права, товар и сохранённую рекомендацию
@@ -760,7 +1190,7 @@ def apply_pricing_recommendation(payload: PricingApplyRequest, db: Session = Dep
     3. Применяет новую цену к товару
     4. Записывает изменение в журнал аудита (price_changes)
     """
-    user = get_or_create_default_user(db)
+    user = current_user
     
     product = db.query(Product).filter(Product.id == payload.product_id, Product.user_id == user.id).first()
     if not product:
@@ -771,21 +1201,7 @@ def apply_pricing_recommendation(payload: PricingApplyRequest, db: Session = Dep
         PricingRecommendationDB.user_id == user.id
     ).first()
 
-    if not rec_db and payload.recommendation_id == 1:
-        old_price = float(product.current_price or 399000.0) if product else 399000.0
-        new_price = 389000.0
-        if product:
-            product.current_price = new_price
-            db.commit()
-        return PricingApplyResponse(
-            success=True,
-            product_id=product.id if product else 123,
-            old_price=old_price,
-            new_price=new_price,
-            reason="Применение AI-рекомендации (Стратегия TOP_1)",
-            recommendation_id=1,
-            message=f"✅ Новая цена ({int(new_price):,} ₸) успешно применена!".replace(",", " ")
-        )
+    # Хардкод fallback жойылды — тек базада бар рекомендация қолданылады
 
     if not rec_db:
         raise HTTPException(status_code=404, detail="Рекомендация не найдена")

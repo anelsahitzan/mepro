@@ -1,5 +1,5 @@
 // --- Main Application Entry Point & Initialization ---
-window.currentMyPrice = 399000;
+window.currentMyPrice = 0;
 window.currentCompetitors = [];
 
 document.addEventListener('click', function(e) {
@@ -16,6 +16,6 @@ document.addEventListener('click', function(e) {
 // Initialize default view on DOM load
 window.addEventListener('DOMContentLoaded', () => {
     if (typeof initTheme === 'function') initTheme();
-    if (typeof loadPreset === 'function') loadPreset('iphone');
+    if (typeof renderMyProducts === 'function') renderMyProducts();
     if (typeof setLanguage === 'function') setLanguage(currentLang);
 });

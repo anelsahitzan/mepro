@@ -16,7 +16,8 @@ from app.schemas import (
     ProductCreate, CustomProductCreate, ProductResponse, CompetitorOffer,
     ProductHistoryResponse, PriceHistoryItem, AIRecommendationOut,
     PricingRecommendRequest, PricingRecommendResponse, PricingApplyRequest, PricingApplyResponse,
-    MarketStatsSchema, PricingStatsSchema, PositionStatsSchema
+    MarketStatsSchema, PricingStatsSchema, PositionStatsSchema,
+    ProductAnalyzeRequest, ProductAnalyzeResponse
 )
 from app.services.parser import UnifiedMarketplaceRouter, KaspiParser
 from app.services.ai_advisor import AIAdvisorService
