@@ -31,8 +31,20 @@ const translations = {
         aiAdviceText: "«Бәсекелестер соңғы 3 күнде бағаны 10 000 ₸ түсірді. Сатылымды жоғалтпас үшін ұсынылатын баға диапазонына өтуге кеңес беріледі.»",
         aiLastUpdate: "Жаңа ұсыныс",
         aiRecommendedLabel: "Ұсынылатын оңтайлы баға:",
+        
+        // Pricing Engine
+        pricingTitle: "Баға бойынша ақылды кеңес",
+        lblMinMargin: "Мин. маржа (%)",
+        lblStrategy: "Баға белгілеу стратегиясы",
+        stratTop1: "👑 TOP-1 (1-орынды алу)",
+        stratBalanced: "⚖️ BALANCED (Теңгерімді)",
+        stratMaxMargin: "💰 MAX_MARGIN (Максималды пайда)",
+        btnCalculate: "Бағаны есептеу",
+        minSafePriceLabel: "Мин. қауіпсіз баға:",
+        positionLabel: "Позиция:",
         btnApplyRec: "Ұсынылған бағаны қабылдау",
         btnTelegram: "Telegram ескертуін алу",
+        
         compListTitle: "Бәсекелестер тізімі",
         compListSub: "Нарықтағы белсенді сатушылардың бағалары",
         liveStream: "● Тікелей эфир",
@@ -65,6 +77,7 @@ const translations = {
         thAIAnalysis: "AI Анализ",
         thHistory: "Тарих",
         btnDelete: "Жою",
+        emptyProductsMsg: "Бақылаудағы тауарлар жоқ. ➕ Тауар қосу батырмасын басыңыз.",
         footerText: "SellerAI Platform © 2026 — Kaspi.kz, Wildberries, Ozon & Yandex Market Аналитика Жүйесі",
         tagLeader: "👑 Лидер",
         tagRow: "Қатарда",
@@ -82,6 +95,7 @@ const translations = {
         
         // Auth UI
         btnLogout: "Шығу",
+        adminPanel: "Админ панель",
         authTitleLogin: "Кіру",
         authTitleRegister: "Тіркелу",
         authSubtitle: "SellerAI жүйесіне қош келдіңіз",
@@ -99,7 +113,7 @@ const translations = {
         // Auto update UI & Price Changes
         autoUpdateTitle: "Авто-жаңарту",
         autoUpdateSub: "Бағаларды әр 30 минут сайын тексеру",
-                statusOn: "Қосулы",
+        statusOn: "Қосулы",
         statusOff: "Өшірулі",
         badgeOk: "✅ Нақты деректер",
         badgeManual: "✏️ Қолмен",
@@ -112,7 +126,6 @@ const translations = {
         thTime: "Уақыты",
         thMyPrice: "Менің бағам",
         thMinComp: "Мин. бәсекелес",
-        thAvgPrice: "Орташа баға",
         thComps: "Конкуренттер",
         thTrend: "Тренд",
         trendUp: "↑ Өсті",
@@ -158,8 +171,20 @@ const translations = {
         aiAdviceText: "«Конкуренты снизили цену на 10 000 ₸ за последние 3 дня. Чтобы не терять продажи, рекомендуется перейти на оптимальный диапазон цен.»",
         aiLastUpdate: "Новая рекомендация",
         aiRecommendedLabel: "Рекомендуемая оптимальная цена:",
+        
+        // Pricing Engine
+        pricingTitle: "Умная рекомендация цены",
+        lblMinMargin: "Мин. маржа (%)",
+        lblStrategy: "Стратегия ценообразования",
+        stratTop1: "👑 TOP-1 (Занять 1-е место)",
+        stratBalanced: "⚖️ BALANCED (Сбалансированная)",
+        stratMaxMargin: "💰 MAX_MARGIN (Макс. прибыль)",
+        btnCalculate: "Рассчитать цену",
+        minSafePriceLabel: "Мин. безопасная:",
+        positionLabel: "Позиция:",
         btnApplyRec: "Принять рекомендуемую цену",
         btnTelegram: "Получить уведомление в Telegram",
+        
         compListTitle: "Список конкурентов",
         compListSub: "Цены активных продавцов на рынке",
         liveStream: "● Прямой эфир",
@@ -192,6 +217,7 @@ const translations = {
         thAIAnalysis: "AI Анализ",
         thHistory: "История",
         btnDelete: "Удалить",
+        emptyProductsMsg: "Нет товаров под наблюдением. Нажмите ➕ Добавить товар.",
         footerText: "SellerAI Platform © 2026 — Аналитическая система Kaspi.kz, Wildberries, Ozon & Yandex Market",
         tagLeader: "👑 Лидер",
         tagRow: "В ряду",
@@ -209,6 +235,7 @@ const translations = {
         
         // Auth UI
         btnLogout: "Выйти",
+        adminPanel: "Админ-панель",
         authTitleLogin: "Войти",
         authTitleRegister: "Регистрация",
         authSubtitle: "Добро пожаловать в SellerAI",
@@ -226,7 +253,7 @@ const translations = {
         // Auto update UI & Price Changes
         autoUpdateTitle: "Авто-обновление",
         autoUpdateSub: "Проверять цены каждые 30 минут",
-                statusOn: "Включено",
+        statusOn: "Включено",
         statusOff: "Выключено",
         badgeOk: "✅ Реальные данные",
         badgeManual: "✏️ Вручную",
@@ -239,7 +266,6 @@ const translations = {
         thTime: "Время",
         thMyPrice: "Моя цена",
         thMinComp: "Мин. конкурент",
-        thAvgPrice: "Средняя цена",
         thComps: "Конкуренты",
         thTrend: "Тренд",
         trendUp: "↑ Выросла",
@@ -285,8 +311,20 @@ const translations = {
         aiAdviceText: "«Competitors dropped prices by 10,000 ₸ over the last 3 days. To maintain sales volume, moving to the recommended optimal price is advised.»",
         aiLastUpdate: "New recommendation",
         aiRecommendedLabel: "Recommended Optimal Price:",
+        
+        // Pricing Engine
+        pricingTitle: "Smart Price Recommendation",
+        lblMinMargin: "Min Margin (%)",
+        lblStrategy: "Pricing Strategy",
+        stratTop1: "👑 TOP-1 (Rank #1)",
+        stratBalanced: "⚖️ BALANCED (Balanced)",
+        stratMaxMargin: "💰 MAX_MARGIN (Max Profit)",
+        btnCalculate: "Calculate Price",
+        minSafePriceLabel: "Min safe price:",
+        positionLabel: "Position:",
         btnApplyRec: "Accept Recommended Price",
         btnTelegram: "Get Telegram Alert",
+        
         compListTitle: "Competitors List",
         compListSub: "Active seller prices in the market",
         liveStream: "● Live Feed",
@@ -319,6 +357,7 @@ const translations = {
         thAIAnalysis: "AI Analysis",
         thHistory: "History",
         btnDelete: "Delete",
+        emptyProductsMsg: "No tracked products. Click ➕ Add Product.",
         footerText: "SellerAI Platform © 2026 — Kaspi.kz, Wildberries, Ozon & Yandex Market Analytics Platform",
         tagLeader: "👑 Leader",
         tagRow: "In Line",
@@ -336,6 +375,7 @@ const translations = {
         
         // Auth UI
         btnLogout: "Logout",
+        adminPanel: "Admin Panel",
         authTitleLogin: "Login",
         authTitleRegister: "Register",
         authSubtitle: "Welcome to SellerAI",
@@ -353,7 +393,7 @@ const translations = {
         // Auto update UI & Price Changes
         autoUpdateTitle: "Auto-Update",
         autoUpdateSub: "Check prices every 30 minutes",
-                statusOn: "Enabled",
+        statusOn: "Enabled",
         statusOff: "Disabled",
         badgeOk: "✅ Real Data",
         badgeManual: "✏️ Manual",
@@ -366,7 +406,6 @@ const translations = {
         thTime: "Time",
         thMyPrice: "My Price",
         thMinComp: "Min Comp",
-        thAvgPrice: "Avg Price",
         thComps: "Competitors",
         thTrend: "Trend",
         trendUp: "↑ Up",
@@ -404,6 +443,64 @@ function selectLanguage(lang) {
     closeLangDropdown();
 }
 
+function updateDynamicKPIs() {
+    const t = translations[currentLang] || translations.kk;
+    
+    // 1. My Price Trend
+    const myPrice = window.currentMyPrice || 399000;
+    const avgPrice = window.currentAvgPrice || 388500;
+    const trendEl = document.getElementById('kpiMyPriceTrend');
+    if (trendEl && myPrice && avgPrice) {
+        const diffPct = ((myPrice - avgPrice) / avgPrice) * 100;
+        if (diffPct > 0.1) {
+            trendEl.innerText = t.trendExpensive.replace('{pct}', Math.abs(diffPct).toFixed(1));
+            trendEl.className = 'text-xs text-rose-600 dark:text-rose-400 font-medium mt-2 inline-block bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-100 dark:border-rose-900/40';
+        } else if (diffPct < -0.1) {
+            trendEl.innerText = t.trendCheap.replace('{pct}', Math.abs(diffPct).toFixed(1));
+            trendEl.className = 'text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2 inline-block bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/40';
+        } else {
+            trendEl.innerText = t.trendEqual;
+            trendEl.className = 'text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-2 inline-block bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/40';
+        }
+    }
+    
+    // 2. Competitor Count
+    const compCount = (window.currentCompetitors && window.currentCompetitors.length) ? window.currentCompetitors.length : 5;
+    const countEl = document.getElementById('kpiCompetitorCount');
+    if (countEl) {
+        countEl.innerText = `${compCount} ${t.competitorsBased}`;
+    }
+    
+    // 3. Margin & Status
+    if (typeof updateMargin === 'function') {
+        updateMargin();
+    }
+    
+    // 4. Recommendation Labels
+    const minSafeEl = document.getElementById('pricingMinSafeDisplay');
+    if (minSafeEl) {
+        const safePrice = window.lastMinSafePrice || 377778;
+        minSafeEl.innerText = `${t.minSafePriceLabel} ${safePrice.toLocaleString('ru-RU')} ₸`;
+    }
+    const posEl = document.getElementById('pricingPosDisplay');
+    if (posEl) {
+        const curPos = window.lastCurPos || 2;
+        const recPos = window.lastRecPos || 1;
+        posEl.innerText = `${t.positionLabel} #${curPos} → #${recPos}`;
+    }
+    
+    // 5. System Active Badge
+    const aiBadgeText = document.getElementById('aiBadgeText');
+    if (aiBadgeText) {
+        aiBadgeText.innerText = t.systemActive;
+    }
+    
+    // 6. Marketplace detected badge
+    if (typeof updateMpBadgeUI === 'function') {
+        updateMpBadgeUI();
+    }
+}
+
 function setLanguage(lang) {
     if (!translations[lang]) return;
     currentLang = lang;
@@ -433,67 +530,45 @@ function setLanguage(lang) {
         }
     });
 
+    // Update select options with data-i18n
+    document.querySelectorAll('option[data-i18n]').forEach(opt => {
+        const key = opt.getAttribute('data-i18n');
+        if (t[key]) {
+            opt.textContent = t[key];
+        }
+    });
+
     const urlInput = document.getElementById('productUrl');
     if (urlInput && typeof handleUrlInput === 'function') {
         handleUrlInput(urlInput.value);
     }
 
-    if (typeof updateMargin === 'function') updateMargin();
+    updateDynamicKPIs();
     
     if (window.currentCompetitors && window.currentCompetitors.length > 0) {
         if (typeof renderCompetitorTable === 'function') renderCompetitorTable();
         if (typeof renderChart === 'function') renderChart(window.currentCompetitors, window.currentMyPrice);
     }
     if (typeof renderMyProducts === 'function') renderMyProducts();
-    if (typeof updateAuthUIText === 'function') updateAuthUIText();
+    if (typeof applyLoginLang === 'function') applyLoginLang(lang);
 
     const autoCheckToggle = document.getElementById('autoCheckToggle');
-    const autoCheckStatusText = document.getElementById('autoCheckStatusText');
-    if (autoCheckToggle && autoCheckStatusText && autoCheckStatusText.textContent !== t.authWait) {
-        autoCheckStatusText.textContent = autoCheckToggle.checked ? t.statusOn : t.statusOff;
+    const autoCheckStatus = document.getElementById('autoCheckStatus');
+    if (autoCheckStatus && autoCheckToggle) {
+        autoCheckStatus.innerText = autoCheckToggle.checked ? t.statusOn : t.statusOff;
     }
 }
 
-function updateAuthUIText() {
-    const t = translations[currentLang] || translations.kk;
-    const isLoginMode = window.isLoginMode !== undefined ? window.isLoginMode : true;
-    const titleEl = document.getElementById('authTitle');
-    const btnEl = document.getElementById('authSubmitBtn');
-    const toggleEl = document.getElementById('authToggleText');
-    
-    if (titleEl) titleEl.innerText = isLoginMode ? t.authTitleLogin : t.authTitleRegister;
-    if (btnEl && !btnEl.disabled) btnEl.innerText = isLoginMode ? t.authSubmitBtn : t.authSubmitBtnRegister;
-    
-    if (toggleEl) {
-        if (isLoginMode) {
-            toggleEl.innerHTML = `${t.authNoAccount} <a href="#" onclick="toggleAuthMode(event)" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">${t.authActionRegister}</a>`;
-        } else {
-            toggleEl.innerHTML = `${t.authHasAccount} <a href="#" onclick="toggleAuthMode(event)" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">${t.authActionLogin}</a>`;
-        }
+// Global click to close dropdowns
+document.addEventListener('click', function(e) {
+    const langContainer = document.getElementById('langDropdownContainer');
+    if (langContainer && !langContainer.contains(e.target)) {
+        closeLangDropdown();
     }
-}
+});
 
-function updateTrendText(avg) {
-    const t = translations[currentLang] || translations.kk;
-    const trendEl = document.getElementById('kpiMyPriceTrend');
-    if (!trendEl) return;
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    setLanguage(currentLang);
+});
 
-    if (trendEl.dataset.isTop1 === "true") {
-        trendEl.innerText = t.trendTop1;
-        return;
-    }
-
-    const myPrice = window.currentMyPrice || 399000;
-    if (myPrice > avg) {
-        const diffPct = (((myPrice - avg) / avg) * 100).toFixed(1);
-        trendEl.innerText = t.trendExpensive.replace('{pct}', diffPct);
-        trendEl.className = 'text-xs text-rose-600 dark:text-rose-400 font-medium mt-2 inline-block bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-100 dark:border-rose-900/40';
-    } else if (myPrice < avg) {
-        const diffPct = (((avg - myPrice) / avg) * 100).toFixed(1);
-        trendEl.innerText = t.trendCheap.replace('{pct}', diffPct);
-        trendEl.className = 'text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2 inline-block bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/40';
-    } else {
-        trendEl.innerText = t.trendEqual;
-        trendEl.className = 'text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-2 inline-block bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/40';
-    }
-}

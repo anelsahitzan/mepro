@@ -14,8 +14,11 @@ document.addEventListener('click', function(e) {
 });
 
 // Initialize default view on DOM load
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
     if (typeof initTheme === 'function') initTheme();
-    if (typeof renderMyProducts === 'function') renderMyProducts();
     if (typeof setLanguage === 'function') setLanguage(currentLang);
+    if (typeof renderMyProducts === 'function') renderMyProducts();
+    if (typeof runAnalysis === 'function') {
+        await runAnalysis(false);
+    }
 });

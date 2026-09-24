@@ -1,31 +1,37 @@
 // --- Pricing Engine API Presentation Module ---
-async function updateMargin() {
-    const costPrice = parseFloat(document.getElementById('costPrice')?.value) || 0;
-    const shopName = document.getElementById('myShop')?.value || "Almaty Mobile";
-    
-    try {
-        const res = await fetch('/api/v1/products/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                product_url: document.getElementById('productUrl')?.value || "",
-                my_shop_name: shopName,
-                cost_price: costPrice,
-                my_price: window.currentMyPrice
-            })
-        });
+function updateMargin() {
+    const t = (typeof translations !== 'undefined' && translations[currentLang]) ? translations[currentLang] : (typeof translations !== 'undefined' ? translations.kk : null);
+    if (!t) return;
 
-        if (res.ok) {
-            const data = await res.json();
-            const marginEl = document.getElementById('kpiMargin');
-            const statusEl = document.getElementById('kpiMarginStatus');
-            if (marginEl && statusEl) {
-                marginEl.innerText = data.margin_analysis.margin_percent + '%';
-                statusEl.innerText = data.margin_analysis.status_text;
-            }
+    const costPrice = parseFloat(document.getElementById('costPrice')?.value) || 340000;
+    const myPrice = window.currentMyPrice || 399000;
+    
+    let marginPct = 0;
+    if (myPrice > 0) {
+        marginPct = ((myPrice - costPrice) / myPrice) * 100;
+    }
+    
+    const marginEl = document.getElementById('kpiMargin');
+    const statusEl = document.getElementById('kpiMarginStatus');
+    if (marginEl && statusEl) {
+        marginEl.innerText = marginPct.toFixed(1) + '%';
+        if (marginPct >= 20) {
+            statusEl.innerText = t.efficiencyVeryHigh;
+            marginEl.className = "text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-outfit";
+            statusEl.className = "text-xs text-emerald-700 dark:text-emerald-300 font-medium mt-2 inline-block bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/40";
+        } else if (marginPct >= 10) {
+            statusEl.innerText = t.efficiencyGood;
+            marginEl.className = "text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-outfit";
+            statusEl.className = "text-xs text-emerald-700 dark:text-emerald-300 font-medium mt-2 inline-block bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/40";
+        } else if (marginPct >= 0) {
+            statusEl.innerText = t.efficiencyLow;
+            marginEl.className = "text-2xl font-bold text-amber-600 dark:text-amber-400 font-outfit";
+            statusEl.className = "text-xs text-amber-700 dark:text-amber-300 font-medium mt-2 inline-block bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-900/40";
+        } else {
+            statusEl.innerText = t.efficiencyLoss;
+            marginEl.className = "text-2xl font-bold text-rose-600 dark:text-rose-400 font-outfit";
+            statusEl.className = "text-xs text-rose-700 dark:text-rose-300 font-medium mt-2 inline-block bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-100 dark:border-rose-900/40";
         }
-    } catch (err) {
-        console.warn("Margin update API call failed:", err);
     }
 }
 

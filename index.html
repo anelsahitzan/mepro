@@ -11,6 +11,8 @@
             darkMode: 'class'
         }
     </script>
+    <!-- Supabase JS SDK v2 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Inter & Outfit Fonts -->
@@ -18,9 +20,135 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         .font-outfit { font-family: 'Outfit', sans-serif; }
+
+        /* ===== LOGIN OVERLAY ===== */
+        #loginOverlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        #loginOverlay.hidden-overlay {
+            opacity: 0; visibility: hidden; pointer-events: none;
+        }
+        .login-card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 48px 40px;
+            width: 100%; max-width: 420px;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.2);
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(32px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .login-input {
+            width: 100%;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            color: #fff;
+            padding: 12px 16px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .login-input::placeholder { color: rgba(255,255,255,0.3); }
+        .login-input:focus {
+            border-color: rgba(99,102,241,0.7);
+            background: rgba(99,102,241,0.08);
+        }
+        .login-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 13px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+        }
+        .login-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 28px rgba(99,102,241,0.55);
+        }
+        .login-btn:active { transform: scale(0.98); }
+        .login-error {
+            color: #f87171;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 12px;
+            display: none;
+            animation: shake 0.4s ease;
+        }
+        @keyframes shake {
+            0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}
+        }
+        .bg-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.25;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 antialiased min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- ===== LOGIN OVERLAY ===== -->
+    <div id="loginOverlay">
+        <!-- Decorative orbs -->
+        <div class="bg-orb" style="width:400px;height:400px;background:#6366f1;top:-100px;right:-80px;"></div>
+        <div class="bg-orb" style="width:300px;height:300px;background:#8b5cf6;bottom:-60px;left:-60px;"></div>
+
+        <div class="login-card">
+            <!-- Language tabs -->
+            <div style="display:flex;gap:6px;margin-bottom:24px;justify-content:center;">
+                <button id="loginLangKK" data-lang="kk" onclick="applyLoginLang('kk')" style="flex:1;padding:7px 0;border-radius:10px;border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.2s;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);">🇰🇿 Қаз</button>
+                <button id="loginLangRU" data-lang="ru" onclick="applyLoginLang('ru')" style="flex:1;padding:7px 0;border-radius:10px;border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.2s;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);">🇷🇺 Рус</button>
+                <button id="loginLangEN" data-lang="en" onclick="applyLoginLang('en')" style="flex:1;padding:7px 0;border-radius:10px;border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.2s;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);">🇬🇧 Eng</button>
+            </div>
+
+            <!-- Logo -->
+            <div style="text-align:center;margin-bottom:32px;">
+                <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:linear-gradient(135deg,#6366f1,#4f46e5);border-radius:16px;font-size:24px;font-weight:800;color:#fff;box-shadow:0 8px 24px rgba(99,102,241,0.4);margin-bottom:16px;">S</div>
+                <h2 style="font-family:'Outfit',sans-serif;font-size:26px;font-weight:700;color:#fff;margin:0;">Seller<span style="color:#818cf8;">AI</span></h2>
+                <p id="loginSubtitle" style="color:rgba(255,255,255,0.45);font-size:13px;margin-top:6px;">Маркетплейс аналитика жүйесі</p>
+            </div>
+
+            <!-- Form -->
+            <div style="display:flex;flex-direction:column;gap:14px;">
+                <div>
+                    <label id="loginLabelUser" style="display:block;color:rgba(255,255,255,0.6);font-size:12px;font-weight:500;margin-bottom:6px;letter-spacing:0.05em;">ПАЙДАЛАНУШЫ АТЫ</label>
+                    <input id="loginUsername" type="email" class="login-input" placeholder="Email енгізіңіз" autocomplete="email" onkeydown="if(event.key==='Enter')doLogin()">
+                </div>
+                <div>
+                    <label id="loginLabelPass" style="display:block;color:rgba(255,255,255,0.6);font-size:12px;font-weight:500;margin-bottom:6px;letter-spacing:0.05em;">ҚҰПИЯ СӨЗ</label>
+                    <div style="position:relative;">
+                        <input id="loginPassword" type="password" class="login-input" placeholder="Пароль енгізіңіз" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:44px;">
+                        <button onclick="togglePasswordVisibility()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.4);padding:0;" title="Көрсету/жасыру">
+                            <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div style="margin-top:4px;">
+                    <button class="login-btn" onclick="doLogin()" id="loginBtn">Кіру</button>
+                </div>
+                <div id="loginError" class="login-error" style="display:none;">⚠️ Логин немесе пароль қате!</div>
+            </div>
+
+            <!-- Footer note -->
+            <p id="loginFooter" style="text-align:center;color:rgba(255,255,255,0.2);font-size:11px;margin-top:28px;">SellerAI Platform © 2026</p>
+        </div>
+    </div>
+    <!-- ===== END LOGIN OVERLAY ===== -->
+
 
     <!-- Navbar -->
     <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 shadow-sm transition-colors duration-200">
@@ -80,8 +208,17 @@
                     </svg>
                 </button>
 
-                <!-- Profile Badge SA -->
-                <div class="h-9 w-9 rounded-xl bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-xs shadow-sm">SA</div>
+                <!-- Admin Panel Link -->
+                <a href="admin.html" target="_blank" title="Админ панель" class="h-9 flex items-center gap-1.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm">
+                    <svg class="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span class="hidden sm:inline" data-i18n="adminPanel">Админ панель</span>
+                </a>
+
+                <!-- Logout Button -->
+                <button onclick="doLogout()" id="logoutBtn" title="Шығу" class="h-9 flex items-center gap-2 px-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-900/50 transition-all shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span class="hidden sm:inline" data-i18n="btnLogout">Шығу</span>
+                </button>
             </div>
         </div>
     </header>
@@ -414,5 +551,6 @@
     <script src="frontend/js/pricing.js"></script>
     <script src="frontend/js/products.js"></script>
     <script src="frontend/js/main.js"></script>
+    <script src="frontend/js/auth.js"></script>
 </body>
 </html>

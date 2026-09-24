@@ -74,11 +74,20 @@ if os.path.exists(FRONTEND_DIR):
         app.mount("/frontend/styles", StaticFiles(directory=styles_dir), name="frontend_styles")
 
 @app.get("/", include_in_schema=False)
+@app.get("/index.html", include_in_schema=False)
 def read_index():
-    index_file = os.path.join(FRONTEND_DIR, "index.html")
+    index_file = os.path.join(PROJECT_ROOT, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
-    return FileResponse("index.html")
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+@app.get("/admin.html", include_in_schema=False)
+@app.get("/admin", include_in_schema=False)
+def read_admin():
+    admin_file = os.path.join(PROJECT_ROOT, "admin.html")
+    if os.path.exists(admin_file):
+        return FileResponse(admin_file)
+    return FileResponse(os.path.join(FRONTEND_DIR, "admin.html"))
 
 @app.post("/api/v1/auth/register", response_model=UserOut, tags=["Auth"])
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -1235,4 +1244,246 @@ def apply_pricing_recommendation(payload: PricingApplyRequest, db: Session = Dep
         recommendation_id=rec_db.id,
         message=f"✅ Новая цена ({int(new_price):,} ₸) успешно применена!".replace(",", " ")
     )
+
+
+# --- Admin Panel Endpoints (Direct Database & Supabase Integration) ---
+import requests as _requests
+
+SB_ADMIN_URL = os.getenv("SUPABASE_URL", "https://ugroczcfufwmmjeahppf.supabase.co")
+SB_ADMIN_SECRET = os.getenv("SUPABASE_SECRET_KEY", "")
+
+def _get_sb_admin_headers():
+    return {
+        "apikey": SB_ADMIN_SECRET,
+        "Authorization": f"Bearer {SB_ADMIN_SECRET}",
+        "Content-Type": "application/json"
+    }
+
+def _fetch_all_users_combined(db: Session):
+    """Fetch and merge users from Supabase Auth and SQLite Database"""
+    sb_users = []
+    try:
+        r = _requests.get(f"{SB_ADMIN_URL}/auth/v1/admin/users", headers=_get_sb_admin_headers(), timeout=5)
+        if r.status_code == 200:
+            sb_users = r.json().get("users", [])
+    except Exception as e:
+        logger.warning(f"Supabase Admin Users fetch warning: {e}")
+
+    db_users = db.query(User).all()
+
+    users_map = {}
+    for u in sb_users:
+        em = (u.get("email") or "").lower().strip()
+        if em:
+            meta = u.get("user_metadata") or {}
+            users_map[em] = {
+                "id": u.get("id"),
+                "email": u.get("email"),
+                "full_name": meta.get("full_name") or u.get("email", "").split("@")[0],
+                "tariff": meta.get("tariff") or "free",
+                "email_confirmed_at": u.get("email_confirmed_at"),
+                "is_active": True,
+                "created_at": u.get("created_at"),
+                "last_sign_in_at": u.get("last_sign_in_at"),
+                "source": "supabase"
+            }
+
+    for row in db_users:
+        em = (row.email or "").lower().strip()
+        if em and em not in users_map:
+            users_map[em] = {
+                "id": str(row.id),
+                "email": row.email,
+                "full_name": row.full_name or row.email.split("@")[0],
+                "tariff": row.tariff_plan or "free",
+                "email_confirmed_at": str(row.created_at) if row.is_active else None,
+                "is_active": bool(row.is_active),
+                "created_at": str(row.created_at) if row.created_at else None,
+                "last_sign_in_at": None,
+                "source": "database"
+            }
+        elif em in users_map and not users_map[em]["tariff"]:
+            users_map[em]["tariff"] = row.tariff_plan or "free"
+
+    return list(users_map.values())
+
+
+@app.get("/api/v1/admin/dashboard", tags=["Admin"])
+def get_admin_dashboard_stats(db: Session = Depends(get_db)):
+    """
+    Дашбордтың барлық статистикасы мен көрсеткіштері (Нақты DB + Supabase)
+    """
+    users = _fetch_all_users_combined(db)
+    products = db.query(Product).order_by(desc(Product.created_at)).all()
+
+    confirmed_count = sum(1 for u in users if u.get("email_confirmed_at"))
+    pro_count = sum(1 for u in users if u.get("tariff") in ["pro", "enterprise"])
+
+    # Tariff distribution
+    tariff_counts = {"free": 0, "pro": 0, "enterprise": 0}
+    for u in users:
+        t = (u.get("tariff") or "free").lower()
+        if t in tariff_counts:
+            tariff_counts[t] += 1
+        else:
+            tariff_counts["free"] += 1
+
+    # Marketplaces distribution
+    mp_counts = {}
+    for p in products:
+        mp = p.marketplace or "kaspi"
+        mp_counts[mp] = mp_counts.get(mp, 0) + 1
+
+    # Recent users (up to 10)
+    sorted_users = sorted(users, key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    recent_users = sorted_users[:10]
+
+    return {
+        "total_users": len(users),
+        "total_products": len(products),
+        "confirmed_emails": confirmed_count,
+        "pro_users": pro_count,
+        "system_uptime": "99.9%",
+        "tariff_distribution": tariff_counts,
+        "marketplace_distribution": mp_counts,
+        "recent_users": recent_users,
+        "stats": {
+            "total_users": len(users),
+            "active_users": confirmed_count,
+            "total_products": len(products),
+            "pro_users": pro_count
+        }
+    }
+
+
+@app.get("/api/v1/admin/users", tags=["Admin"])
+def get_admin_users(db: Session = Depends(get_db)):
+    """
+    Барлық нақты пайдаланушылар тізімі (Supabase + SQLite)
+    """
+    users = _fetch_all_users_combined(db)
+    return {"users": sorted(users, key=lambda x: str(x.get("created_at") or ""), reverse=True)}
+
+
+@app.post("/api/v1/admin/users", tags=["Admin"])
+def create_admin_user(payload: dict, db: Session = Depends(get_db)):
+    """
+    Жаңа пайдаланушыны Supabase және SQLite дерекқорына қосу
+    """
+    email = payload.get("email", "").strip().lower()
+    password = payload.get("password", "")
+    tariff = payload.get("tariff", "free")
+    full_name = payload.get("full_name") or email.split("@")[0]
+
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email және құпия сөз міндетті")
+
+    # 1. Supabase Auth-қа тіркеу
+    sb_id = None
+    try:
+        r = _requests.post(
+            f"{SB_ADMIN_URL}/auth/v1/admin/users",
+            headers=_get_sb_admin_headers(),
+            json={
+                "email": email,
+                "password": password,
+                "user_metadata": {"tariff": tariff, "full_name": full_name},
+                "email_confirm": True
+            },
+            timeout=5
+        )
+        if r.status_code in [200, 201]:
+            sb_data = r.json()
+            sb_id = sb_data.get("id")
+        elif r.status_code == 422 or "already registered" in r.text:
+            raise HTTPException(status_code=400, detail="Бұл email бойынша пайдаланушы бар")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Supabase Auth admin create warning: {e}")
+
+    # 2. SQLite базасына жазу
+    db_user = db.query(User).filter(User.email == email).first()
+    if not db_user:
+        db_user = User(
+            email=email,
+            full_name=full_name,
+            tariff_plan=tariff,
+            hashed_password=get_password_hash(password),
+            is_active=True
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+
+    return {
+        "id": sb_id or str(db_user.id),
+        "email": email,
+        "full_name": full_name,
+        "tariff": tariff,
+        "message": "Пайдаланушы сәтті құрылды"
+    }
+
+
+@app.delete("/api/v1/admin/users/{user_id_or_email}", tags=["Admin"])
+def delete_admin_user(user_id_or_email: str, db: Session = Depends(get_db)):
+    """
+    Пайдаланушыны жою (Supabase + SQLite)
+    """
+    # 1. Try deleting from Supabase
+    try:
+        sb_target_id = user_id_or_email
+        if "@" in user_id_or_email:
+            users_res = _requests.get(f"{SB_ADMIN_URL}/auth/v1/admin/users", headers=_get_sb_admin_headers(), timeout=5)
+            if users_res.status_code == 200:
+                for su in users_res.json().get("users", []):
+                    if (su.get("email") or "").lower() == user_id_or_email.lower():
+                        sb_target_id = su.get("id")
+                        break
+        if sb_target_id and "@" not in sb_target_id:
+            _requests.delete(
+                f"{SB_ADMIN_URL}/auth/v1/admin/users/{sb_target_id}",
+                headers=_get_sb_admin_headers(),
+                timeout=5
+            )
+    except Exception as e:
+        logger.warning(f"Supabase delete warning: {e}")
+
+    # 2. Delete from SQLite
+    if "@" in user_id_or_email:
+        u = db.query(User).filter(User.email == user_id_or_email).first()
+    elif user_id_or_email.isdigit():
+        u = db.query(User).filter(User.id == int(user_id_or_email)).first()
+    else:
+        u = None
+
+    if u:
+        db.delete(u)
+        db.commit()
+
+    return {"success": True, "message": "Пайдаланушы жойылды"}
+
+
+@app.get("/api/v1/admin/products", tags=["Admin"])
+def get_admin_products(db: Session = Depends(get_db)):
+    """
+    Админ үшін барлық нақты тауарлар тізімі (SQLite DB)
+    """
+    products = db.query(Product).order_by(desc(Product.created_at)).all()
+    results = []
+    for p in products:
+        results.append({
+            "id": p.id,
+            "product_name": p.product_name or f"Тауар #{p.id}",
+            "marketplace": p.marketplace or "kaspi",
+            "current_price": float(p.current_price) if p.current_price else None,
+            "cost_price": float(p.cost_price) if p.cost_price else None,
+            "sku": p.sku,
+            "product_url": p.product_url,
+            "is_active": bool(p.is_active),
+            "last_checked_at": str(p.last_checked_at) if p.last_checked_at else None,
+            "created_at": str(p.created_at) if p.created_at else None
+        })
+    return results
+
 

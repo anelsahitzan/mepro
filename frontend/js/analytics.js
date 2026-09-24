@@ -5,21 +5,36 @@ window.lastRecommendationId = null;
 window.currentMyPrice = 0;           // Тек API жауабынан толтырылады
 window.currentCompetitors = [];
 
-// loadPreset — PRESETS_DATA жойылды, функция енді шақырылмайды.
-// Нақты талдау үшін URL енгізіп, "Талдауды бастау" батырмасын басыңыз.
+const MARKETPLACE_PRESET_URLS = {
+    iphone: "https://kaspi.kz/shop/p/apple-iphone-15-128gb-chernyi-113137790/",
+    wildberries: "https://www.wildberries.ru/catalog/150000000/detail.aspx",
+    ozon: "https://www.ozon.ru/product/smartfon-apple-iphone-15-128gb-123456789/",
+    samsung: "https://kaspi.kz/shop/p/samsung-galaxy-s24-ultra-12-256gb-seryi-116044354/",
+    airpods: "https://kaspi.kz/shop/p/apple-airpods-pro-2-with-type-c-belyi-113677582/"
+};
+
 async function loadPreset(key) {
-    console.info("loadPreset: PRESETS_DATA жойылды. Нақты маркетплейс URL-ін енгізіңіз.");
+    const url = MARKETPLACE_PRESET_URLS[key] || MARKETPLACE_PRESET_URLS.iphone;
+    const urlInput = document.getElementById('productUrl');
+    if (urlInput) {
+        urlInput.value = url;
+        if (typeof handleUrlInput === 'function') {
+            handleUrlInput(url);
+        }
+    }
+    await runAnalysis(false);
 }
 
 
-async function runAnalysis() {
-    const t = translations[currentLang] || translations.kk;
+async function runAnalysis(showSuccessAlert = true) {
+    const t = (typeof translations !== 'undefined' && translations[currentLang]) ? translations[currentLang] : (typeof translations !== 'undefined' ? translations.kk : null);
     const btn = document.getElementById('submitBtn');
-    if (!btn) return;
-    btn.innerHTML = `<svg class="w-4 h-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>${t.btnParsing}</span>`;
-    btn.disabled = true;
+    if (btn) {
+        btn.innerHTML = `<svg class="w-4 h-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>${t ? t.btnParsing : 'Талдауда...'}</span>`;
+        btn.disabled = true;
+    }
 
-    const url = document.getElementById('productUrl')?.value || "";
+    const url = document.getElementById('productUrl')?.value || "https://kaspi.kz/shop/p/apple-iphone-15-128gb-chernyi-113137790/";
     const shopName = document.getElementById('myShop')?.value || "Almaty Mobile";
     const costPrice = parseFloat(document.getElementById('costPrice')?.value) || 340000;
 
@@ -30,9 +45,13 @@ async function runAnalysis() {
     else if (url.includes('airpods')) presetKey = 'airpods';
 
     try {
+        const token = (typeof getAuthToken === 'function') ? await getAuthToken() : null;
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const res = await fetch('/api/v1/products/analyze', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify({
                 preset_key: presetKey,
                 product_url: url,
@@ -44,13 +63,20 @@ async function runAnalysis() {
         if (res.ok) {
             const data = await res.json();
             renderAnalysisData(data);
+            if (showSuccessAlert && t) {
+                alert(t.alertAnalysisDone);
+            }
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            console.warn("Analysis API returned error:", res.status, errData);
         }
     } catch (err) {
         console.warn("Analysis API failed:", err);
     } finally {
-        btn.innerHTML = `<svg class="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg> <span data-i18n="btnStartAnalysis">${t.btnStartAnalysis}</span>`;
-        btn.disabled = false;
-        alert(t.alertAnalysisDone);
+        if (btn) {
+            btn.innerHTML = `<svg class="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg> <span data-i18n="btnStartAnalysis">${t ? t.btnStartAnalysis : 'Талдауды бастау'}</span>`;
+            btn.disabled = false;
+        }
     }
 }
 
@@ -137,9 +163,13 @@ function renderAnalysisData(data) {
     
     window.currentProductId = data.product.id;
     window.currentMyPrice = data.product.current_price;
+    window.currentAvgPrice = data.market.avg_price;
     window.currentCompetitors = data.market.competitors;
     window.lastRecommendationId = data.recommendation.recommendation_id;
     window.lastRecommendedPrice = data.recommendation.recommended_price;
+    window.lastMinSafePrice = data.recommendation.minimum_safe_price;
+    window.lastCurPos = data.recommendation.current_position;
+    window.lastRecPos = data.recommendation.recommended_position;
 
     const urlInput = document.getElementById('productUrl');
     if (urlInput) {
@@ -156,41 +186,11 @@ function renderAnalysisData(data) {
     document.getElementById('kpiMyPrice').innerText = data.product.current_price.toLocaleString() + ' ₸';
     document.getElementById('kpiAvgPrice').innerText = data.market.avg_price.toLocaleString() + ' ₸';
 
-    const countEl = document.getElementById('kpiCompetitorCount');
-    if (countEl) countEl.innerText = `${data.market.competitor_count} ${t.competitorsBased}`;
-
-    const trendEl = document.getElementById('kpiMyPriceTrend');
-    if (trendEl) {
-        trendEl.innerText = data.market.trend_text;
-        if (data.market.trend_status === "EXPENSIVE") {
-            trendEl.className = 'text-xs text-rose-600 dark:text-rose-400 font-medium mt-2 inline-block bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-100 dark:border-rose-900/40';
-        } else if (data.market.trend_status === "CHEAP") {
-            trendEl.className = 'text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2 inline-block bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/40';
-        } else {
-            trendEl.className = 'text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-2 inline-block bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/40';
-        }
-    }
-
-    const marginEl = document.getElementById('kpiMargin');
-    const marginStatusEl = document.getElementById('kpiMarginStatus');
-    if (marginEl && marginStatusEl) {
-        marginEl.innerText = data.margin_analysis.margin_percent + '%';
-        marginStatusEl.innerText = data.margin_analysis.status_text;
-        if (data.margin_analysis.margin_status === "VERY_HIGH" || data.margin_analysis.margin_status === "GOOD") {
-            marginEl.className = "text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-outfit";
-            marginStatusEl.className = "text-xs text-emerald-700 dark:text-emerald-300 font-medium mt-2 inline-block bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/40";
-        } else if (data.margin_analysis.margin_status === "LOW") {
-            marginEl.className = "text-2xl font-bold text-amber-600 dark:text-amber-400 font-outfit";
-            marginStatusEl.className = "text-xs text-amber-700 dark:text-amber-300 font-medium mt-2 inline-block bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-900/40";
-        } else {
-            marginEl.className = "text-2xl font-bold text-rose-600 dark:text-rose-400 font-outfit";
-            marginStatusEl.className = "text-xs text-rose-700 dark:text-rose-300 font-medium mt-2 inline-block bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-100 dark:border-rose-900/40";
-        }
+    if (typeof updateDynamicKPIs === 'function') {
+        updateDynamicKPIs();
     }
 
     document.getElementById('aiRecommendedPriceDisplay').innerText = data.recommendation.recommended_price.toLocaleString() + ' ₸';
-    document.getElementById('pricingMinSafeDisplay').innerText = `Мин. безопасная: ${data.recommendation.minimum_safe_price.toLocaleString()} ₸`;
-    document.getElementById('pricingPosDisplay').innerText = `Позиция: #${data.recommendation.current_position} → #${data.recommendation.recommended_position}`;
 
     const expList = document.getElementById('pricingExplanationList');
     if (expList && data.recommendation.explanation) {

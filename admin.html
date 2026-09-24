@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SellerAI Admin Panel</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:"class"}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;}
+body{font-family:Inter,sans-serif;margin:0;background:#0f172a;color:#f1f5f9;min-height:100vh;display:flex;}
+#sidebar{width:240px;min-height:100vh;background:#1e293b;border-right:1px solid #334155;display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;}
+.slogo{padding:20px;border-bottom:1px solid #334155;}
+.slogo h1{font-family:Outfit,sans-serif;font-size:20px;font-weight:800;margin:0;color:#fff;}
+.slogo h1 span{color:#818cf8;}
+.slogo p{font-size:11px;color:#94a3b8;margin:4px 0 0;}
+.nsect{padding:12px 12px 4px;font-size:10px;font-weight:600;letter-spacing:.08em;color:#94a3b8;text-transform:uppercase;}
+.nitem{display:flex;align-items:center;gap:10px;padding:9px 16px;margin:2px 8px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;color:#94a3b8;transition:all .15s;border:none;background:none;width:calc(100% - 16px);text-align:left;}
+.nitem:hover{background:rgba(99,102,241,.1);color:#f1f5f9;}
+.nitem.active{background:rgba(99,102,241,.15);color:#a5b4fc;border-left:3px solid #6366f1;}
+.sfoot{margin-top:auto;padding:16px;border-top:1px solid #334155;}
+#main{margin-left:240px;flex:1;display:flex;flex-direction:column;}
+#topbar{height:60px;background:#1e293b;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:50;}
+#content{padding:24px;flex:1;}
+.card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:20px;}
+.scard{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:20px;transition:transform .2s;}
+.scard:hover{transform:translateY(-2px);}
+.icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;}
+.dtbl{width:100%;border-collapse:collapse;}
+.dtbl th{text-align:left;padding:10px 14px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8;border-bottom:1px solid #334155;}
+.dtbl td{padding:12px 14px;font-size:13px;border-bottom:1px solid rgba(51,65,85,.5);vertical-align:middle;}
+.dtbl tr:hover td{background:rgba(255,255,255,.02);}
+.dtbl tr:last-child td{border-bottom:none;}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.bg{background:rgba(16,185,129,.15);color:#34d399;}
+.by{background:rgba(245,158,11,.15);color:#fbbf24;}
+.bb{background:rgba(59,130,246,.15);color:#60a5fa;}
+.br{background:rgba(244,63,94,.15);color:#fb7185;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:all .15s;}
+.bp{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;}
+.bp:hover{transform:translateY(-1px);}
+.bdng{background:rgba(244,63,94,.15);color:#fb7185;border:1px solid rgba(244,63,94,.2);}
+.bdng:hover{background:rgba(244,63,94,.25);}
+.bgh{background:rgba(255,255,255,.05);color:#f1f5f9;border:1px solid #334155;}
+.bgh:hover{background:rgba(255,255,255,.08);}
+.bsm{padding:5px 12px;font-size:12px;}
+.sec{display:none;}.sec.active{display:block;}
+.inp{background:rgba(255,255,255,.05);border:1px solid #334155;border-radius:10px;color:#f1f5f9;padding:9px 12px;font-size:13px;width:100%;outline:none;transition:border-color .2s;}
+.inp:focus{border-color:rgba(99,102,241,.6);}
+.inp::placeholder{color:#94a3b8;}
+.lbl{font-size:12px;font-weight:500;color:#94a3b8;margin-bottom:6px;display:block;}
+.moverlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:500;display:none;align-items:center;justify-content:center;}
+.moverlay.open{display:flex;}
+.mbox{background:#1e293b;border:1px solid #334155;border-radius:20px;padding:28px;width:100%;max-width:460px;animation:su .3s ease;}
+@keyframes su{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+#adminLogin{position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e1b4b,#0f172a);z-index:999;display:flex;align-items:center;justify-content:center;}
+#adminLogin.hidden{display:none;}
+.alc{background:rgba(255,255,255,.04);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:40px;width:100%;max-width:390px;}
+.pulse{width:8px;height:8px;border-radius:50%;background:#10b981;animation:pl 2s infinite;display:inline-block;}
+@keyframes pl{0%,100%{opacity:1}50%{opacity:.4}}
+.spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.15);border-top-color:#6366f1;border-radius:50%;animation:sp .7s linear infinite;display:inline-block;vertical-align:middle;}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.ti{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:sir .3s ease;min-width:220px;}
+@keyframes sir{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+.ts{border-left:3px solid #10b981;}.te{border-left:3px solid #f43f5e;}.tn{border-left:3px solid #6366f1;}
+::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-thumb{background:#334155;border-radius:4px;}
+.ch{position:relative;height:220px;}
+</style>
+</head>
+<body>
+
+<div id="adminLogin">
+  <div class="alc">
+    <div style="text-align:center;margin-bottom:26px;">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:50px;height:50px;background:linear-gradient(135deg,#6366f1,#4f46e5);border-radius:14px;font-size:22px;font-weight:800;color:#fff;margin-bottom:12px;">S</div>
+      <h2 style="font-family:Outfit,sans-serif;font-size:22px;font-weight:700;color:#fff;margin:0;">SellerAI <span style="color:#818cf8;">Admin</span></h2>
+      <p style="color:rgba(255,255,255,.4);font-size:12px;margin-top:5px;">Администратор панелi</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label class="lbl">EMAIL</label><input id="adE" type="email" class="inp" placeholder="admin@example.com" onkeydown="if(event.key==='Enter')aLogin()"></div>
+      <div><label class="lbl">ПАРОЛЬ</label><input id="adP" type="password" class="inp" placeholder="Пароль" onkeydown="if(event.key==='Enter')aLogin()"></div>
+      <div id="adErr" style="color:#f87171;font-size:12px;display:none;">Қате email немесе пароль</div>
+      <button class="btn bp" onclick="aLogin()" id="adBtn" style="width:100%;justify-content:center;margin-top:4px;">Кiру</button>
+    </div>
+  </div>
+</div>
+
+<nav id="sidebar">
+  <div class="slogo"><h1>Seller<span>AI</span></h1><p>Админ Панель</p></div>
+  <div class="nsect">Басты</div>
+  <button class="nitem active" onclick="showS('dashboard',this)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Дашборд
+  </button>
+  <div class="nsect">Басқару</div>
+  <button class="nitem" onclick="showS('users',this)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Пайдаланушылар
+  </button>
+  <button class="nitem" onclick="showS('products',this)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Тауарлар
+  </button>
+  <button class="nitem" onclick="showS('analytics',this)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Аналитика
+  </button>
+  <div class="nsect">Жүйе</div>
+  <button class="nitem" onclick="showS('settings',this)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Баптаулар
+  </button>
+  <div class="sfoot">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <div style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">A</div>
+      <div><div id="aEmail" style="font-size:12px;font-weight:600;">admin</div><div style="font-size:11px;color:#94a3b8;">Super Admin</div></div>
+    </div>
+    <button class="btn bgh bsm" onclick="aLogout()" style="width:100%;justify-content:center;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Шығу
+    </button>
+  </div>
+</nav>
+
+<div id="main">
+  <div id="topbar">
+    <div style="display:flex;align-items:center;gap:10px;"><div class="pulse"></div><span style="font-size:13px;color:#94a3b8;">Жүйе жұмыс iстеуде</span></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="clk" style="font-size:12px;color:#94a3b8;"></span>
+      <a href="/" class="btn bgh bsm">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Негiзгi сайт
+      </a>
+    </div>
+  </div>
+  <div id="content">
+
+    <section id="sec-dashboard" class="sec active">
+      <div style="margin-bottom:20px;"><h2 style="font-family:Outfit,sans-serif;font-size:22px;font-weight:700;margin:0;">Дашборд</h2><p style="font-size:13px;color:#94a3b8;margin-top:4px;">Жүйенiн жалпы жай-күйi</p></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;">
+        <div class="scard" style="border-color:rgba(99,102,241,.3);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+            <div class="icon" style="background:rgba(99,102,241,.15);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <span class="badge bg">Жалпы</span>
+          </div>
+          <div id="kU" style="font-size:28px;font-weight:700;font-family:Outfit,sans-serif;">—</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Пайдаланушылар</div>
+        </div>
+        <div class="scard" style="border-color:rgba(16,185,129,.3);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+            <div class="icon" style="background:rgba(16,185,129,.15);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
+            <span class="badge bb">Барлығы</span>
+          </div>
+          <div id="kP" style="font-size:28px;font-weight:700;font-family:Outfit,sans-serif;">—</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Тауарлар</div>
+        </div>
+        <div class="scard" style="border-color:rgba(245,158,11,.3);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+            <div class="icon" style="background:rgba(245,158,11,.15);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+            <span class="badge by">Белсендi</span>
+          </div>
+          <div id="kA" style="font-size:28px;font-weight:700;font-family:Outfit,sans-serif;">—</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Расталған email</div>
+        </div>
+        <div class="scard" style="border-color:rgba(59,130,246,.3);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+            <div class="icon" style="background:rgba(59,130,246,.15);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <span class="badge bg">OK</span>
+          </div>
+          <div style="font-size:28px;font-weight:700;font-family:Outfit,sans-serif;">99.9%</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Жүйе тұрақтылығы</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h3 style="font-size:14px;font-weight:600;margin:0;">Соңғы пайдаланушылар</h3>
+            <button class="btn bgh bsm" onclick="showS('users',null)">Барлығы →</button>
+          </div>
+          <div id="dashU"><div style="text-align:center;padding:20px;"><div class="spin"></div></div></div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:600;margin:0 0 14px;">Тариф бөлiнiсi</h3>
+          <div class="ch"><canvas id="tariffC"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-users" class="sec">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div><h2 style="font-family:Outfit,sans-serif;font-size:22px;font-weight:700;margin:0;">Пайдаланушылар</h2><p style="font-size:13px;color:#94a3b8;margin-top:4px;">Тiркелген пайдаланушылар</p></div>
+        <div style="display:flex;gap:10px;">
+          <input id="uSrch" type="search" class="inp" placeholder="Iздеу..." style="width:200px;" oninput="fU()">
+          <button class="btn bp" onclick="openAU()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Қосу</button>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;"><div id="uTbl" style="overflow-x:auto;"><div style="padding:40px;text-align:center;"><div class="spin"></div></div></div></div>
+    </section>
+
+    <section id="sec-products" class="sec">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div><h2 style="font-family:Outfit,sans-serif;font-size:22px;font-weight:700;margin:0;">Тауарлар</h2><p style="font-size:13px;color:#94a3b8;margin-top:4px;">Барлық тауарлар</p></div>
+        <input id="pSrch" type="search" class="inp" placeholder="Iздеу..." style="width:220px;" oninput="fP()">
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;"><div id="pTbl" style="overflow-x:auto;"><div style="padding:40px;text-align:center;"><div class="spin"></div></div></div></div>
+    </section>
+
+    <section id="sec-analytics" class="sec">
+      <div style="margin-bottom:20px;"><h2 style="font-family:Outfit,sans-serif;font-size:22px;font-weight:700;margin:0;">Аналитика</h2></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div class="card"><h3 style="font-size:13px;font-weight:600;margin:0 0 14px;color:#94a3b8;">ТАРИФ БОЙЫНША</h3><div class="ch"><canvas id="barC"></canvas></div></div>
+        <div class="card"><h3 style="font-size:13px;font-weight:600;margin:0 0 14px;color:#94a3b8;">МАРКЕТПЛЕЙС БОЙЫНША</h3><div class="ch"><canvas id="mpC"></canvas></div></div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:13px;font-weight:600;margin:0 0 14px;color:#94a3b8;">ЖАЛПЫ СТАТИСТИКА</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
+          <div style="padding:14px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid #334155;"><div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">БАРЛЫҚ USERS</div><div id="stT" style="font-size:24px;font-weight:700;">—</div></div>
+          <div style="padding:14px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid #334155;"><div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">БЕЛСЕНДI</div><div id="stA" style="font-size:24px;font-weight:700;color:#34d399;">—</div></div>
+          <div style="padding:14px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid #334155;"><div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">ТАУАРЛАР</div><div id="stP" style="font-size:24px;font-weight:700;color:#60a5fa;">—</div></div>
+          <div style="padding:14px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid #334155;"><div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">PRO</div><div id="stPro" style="font-size:24px;font-weight:700;color:#a78bfa;">—</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-settings" class="sec">
+      <div style="margin-bottom:20px;"><h2 style="font-family:Outfit,sans-serif;font-size:22px;font-weight:700;margin:0;">Баптаулар</h2></div>
+      <div style="display:grid;gap:14px;max-width:580px;">
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:600;margin:0 0 14px;">Supabase байланысы</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div><label class="lbl">URL</label><input class="inp" value="https://ugroczcfufwmmjeahppf.supabase.co" readonly style="opacity:.6;"></div>
+            <div><label class="lbl">KEY</label><input class="inp" value="sb_publishable_1EmQxbsbdN-Ved1n9JKw3A_r3SizqUq" readonly style="opacity:.6;"></div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#34d399;margin-top:4px;"><div class="pulse"></div>Байланыс орнатылды</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:600;margin:0 0 14px;">База туралы ақпарат</h3>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="padding:10px 12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid #334155;font-size:13px;"><span style="color:#94a3b8;">Провайдер: </span><strong>Supabase PostgreSQL</strong></div>
+            <div style="padding:10px 12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid #334155;font-size:13px;"><span style="color:#94a3b8;">Хост: </span><strong>db.ugroczcfufwmmjeahppf.supabase.co</strong></div>
+            <div style="padding:10px 12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid #334155;font-size:13px;"><span style="color:#94a3b8;">Порт: </span><strong>5432</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="auModal" class="moverlay">
+  <div class="mbox">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <h3 style="font-size:16px;font-weight:700;margin:0;">Жаңа пайдаланушы</h3>
+      <button onclick="cModal()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:20px;">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label class="lbl">EMAIL</label><input id="nE" type="email" class="inp" placeholder="user@example.com"></div>
+      <div><label class="lbl">ПАРОЛЬ</label><input id="nP" type="password" class="inp" placeholder="Кем дегенде 6 символ"></div>
+      <div><label class="lbl">ТАРИФ</label><select id="nT" class="inp" style="cursor:pointer;"><option value="free">Free</option><option value="pro">Pro</option><option value="enterprise">Enterprise</option></select></div>
+      <div id="mErr" style="color:#f87171;font-size:12px;display:none;"></div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button class="btn bgh" onclick="cModal()" style="flex:1;justify-content:center;">Бас тарту</button>
+        <button class="btn bp" onclick="crU()" id="crBtn" style="flex:1;justify-content:center;">Жасау</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const SB = "https://ugroczcfufwmmjeahppf.supabase.co";
+const KEY = "sb_publishable_1EmQxbsbdN-Ved1n9JKw3A_r3SizqUq";
+
+// Official Supabase client for client-side Auth
+const _sb = window.supabase.createClient(SB, KEY, {
+  auth: { autoRefreshToken: true, persistSession: true, storageKey: 'sellerai_admin_session' }
+});
+
+let U = [], P = [], tCh = null, bCh = null, mCh = null;
+
+async function aLogin(){
+  const em = document.getElementById("adE").value.trim();
+  const pw = document.getElementById("adP").value;
+  const btn = document.getElementById("adBtn"), err = document.getElementById("adErr");
+  err.style.display = "none"; btn.innerHTML = "<div class=spin></div>"; btn.disabled = true;
+
+  const { data, error } = await _sb.auth.signInWithPassword({ email: em, password: pw });
+
+  if(error || !data.session){
+    err.style.display = "block"; btn.innerHTML = "Кiру"; btn.disabled = false;
+  } else {
+    document.getElementById("aEmail").textContent = data.user?.email || "admin";
+    document.getElementById("adminLogin").classList.add("hidden");
+    init();
+    toast("Сәтті кірдіңіз!", "s");
+  }
+}
+
+async function aLogout(){
+  await _sb.auth.signOut();
+  location.reload();
+}
+
+function showS(n, el){
+  document.querySelectorAll(".sec").forEach(s => s.classList.remove("active"));
+  document.getElementById("sec-" + n).classList.add("active");
+  if(el){
+    document.querySelectorAll(".nitem").forEach(i => i.classList.remove("active"));
+    el.classList.add("active");
+  }
+  if(n === "users") loadU();
+  if(n === "products") loadP();
+  if(n === "analytics") loadAn();
+  if(n === "dashboard") init();
+}
+
+async function init(){
+  await Promise.all([loadU(), loadP()]);
+  rDash();
+}
+
+function rDash(){
+  const totalUsers = U.length;
+  const totalProducts = P.length;
+  const confirmed = U.filter(u => u.email_confirmed_at).length;
+  const proUsers = U.filter(u => (u.tariff || u.user_metadata?.tariff) === "pro" || (u.tariff || u.user_metadata?.tariff) === "enterprise").length;
+
+  document.getElementById("kU").textContent = totalUsers;
+  document.getElementById("kP").textContent = totalProducts;
+  document.getElementById("kA").textContent = confirmed;
+  document.getElementById("stT").textContent = totalUsers;
+  document.getElementById("stA").textContent = confirmed;
+  document.getElementById("stP").textContent = totalProducts;
+  document.getElementById("stPro").textContent = proUsers;
+
+  const recent = [...U].slice(0, 5);
+  document.getElementById("dashU").innerHTML = recent.length ? recent.map(u => {
+    const email = u.email || "—";
+    const initial = email[0].toUpperCase();
+    const isConfirmed = !!u.email_confirmed_at;
+    const dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString("kk-KZ") : "—";
+    const tariffStr = (u.tariff || u.user_metadata?.tariff || "free").toUpperCase();
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(51,65,85,.4);">
+      <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${initial}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${email}</div>
+        <div style="font-size:11px;color:#94a3b8;">${dateStr} • <span style="color:#818cf8;font-weight:600;">${tariffStr}</span></div>
+      </div>
+      <span class="badge ${isConfirmed ? "bg" : "by"}">${isConfirmed ? "Белсенді" : "Күтуде"}</span>
+    </div>`;
+  }).join("") : "<div style='color:#94a3b8;font-size:13px;padding:12px 0;'>Пайдаланушылар табылмады</div>";
+
+  const ctx = document.getElementById("tariffC");
+  if(ctx){
+    if(tCh) tCh.destroy();
+    const fr = U.filter(u => !(u.tariff || u.user_metadata?.tariff) || (u.tariff || u.user_metadata?.tariff) === "free").length;
+    const pr = U.filter(u => (u.tariff || u.user_metadata?.tariff) === "pro").length;
+    const en = U.filter(u => (u.tariff || u.user_metadata?.tariff) === "enterprise").length;
+
+    tCh = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: [`Free (${fr})`, `Pro (${pr})`, `Enterprise (${en})`],
+        datasets: [{
+          data: [fr, pr, en],
+          backgroundColor: ["rgba(148,163,184,.6)", "rgba(99,102,241,.8)", "rgba(245,158,11,.8)"],
+          borderColor: "#1e293b",
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: "#94a3b8", font: { size: 11, family: "Inter" }, padding: 12 }
+          }
+        },
+        cutout: "65%"
+      }
+    });
+  }
+}
+
+async function loadU(){
+  try {
+    const r = await fetch("/api/v1/admin/users");
+    if(r.ok){
+      const d = await r.json();
+      U = d.users || [];
+      rUTbl(U);
+      return;
+    }
+  } catch(e){}
+  U = [];
+  rUTbl([]);
+}
+
+function rUTbl(list){
+  if(!list || !list.length){
+    document.getElementById("uTbl").innerHTML = `<div style="padding:32px;text-align:center;color:#94a3b8;font-size:13px;">Пайдаланушылар табылмады</div>`;
+    return;
+  }
+  document.getElementById("uTbl").innerHTML = `<table class="dtbl">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Күйі</th>
+        <th>Тариф</th>
+        <th>Тіркелген</th>
+        <th>Соңғы кіру</th>
+        <th>Әрекет</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${list.map(u => {
+        const email = u.email || "—";
+        const initial = email[0].toUpperCase();
+        const isConfirmed = !!u.email_confirmed_at;
+        const tariff = (u.tariff || u.user_metadata?.tariff || "free").toLowerCase();
+        const created = u.created_at ? new Date(u.created_at).toLocaleString("kk-KZ") : "—";
+        const lastIn = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString("kk-KZ") : "—";
+        const badgeColor = tariff === "enterprise" ? "by" : (tariff === "pro" ? "bb" : "bgh");
+        return `<tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:9px;">
+              <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">${initial}</div>
+              <div>
+                <div style="font-size:13px;font-weight:500;">${email}</div>
+                ${u.full_name && u.full_name !== email.split('@')[0] ? `<div style="font-size:11px;color:#94a3b8;">${u.full_name}</div>` : ''}
+              </div>
+            </div>
+          </td>
+          <td><span class="badge ${isConfirmed ? "bg" : "by"}">${isConfirmed ? "● Белсенді" : "● Күтуде"}</span></td>
+          <td><span class="badge ${badgeColor}">${tariff.toUpperCase()}</span></td>
+          <td style="color:#94a3b8;font-size:12px;">${created}</td>
+          <td style="color:#94a3b8;font-size:12px;">${lastIn}</td>
+          <td><button class="btn bdng bsm" onclick="dU('${u.id}','${email}')">Жою</button></td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>`;
+}
+
+function fU(){
+  const q = document.getElementById("uSrch").value.toLowerCase();
+  rUTbl(U.filter(u => (u.email||"").toLowerCase().includes(q) || (u.full_name||"").toLowerCase().includes(q)));
+}
+
+async function dU(id, em){
+  if(!confirm(`"${em}" пайдаланушысын жоюға сенімдісіз бе?`)) return;
+  try {
+    const r = await fetch(`/api/v1/admin/users/${id || encodeURIComponent(em)}`, {method: "DELETE"});
+    if(r.ok){
+      toast("Пайдаланушы жойылды", "s");
+      await loadU();
+      rDash();
+      return;
+    }
+  } catch(e){}
+  toast("Жою кезінде қате орын алды", "e");
+}
+
+function openAU(){
+  document.getElementById("auModal").classList.add("open");
+  document.getElementById("mErr").style.display = "none";
+  document.getElementById("nE").value = "";
+  document.getElementById("nP").value = "";
+}
+
+function cModal(){
+  document.getElementById("auModal").classList.remove("open");
+}
+
+async function crU(){
+  const em = document.getElementById("nE").value.trim().toLowerCase();
+  const pw = document.getElementById("nP").value;
+  const tr = document.getElementById("nT").value;
+  const btn = document.getElementById("crBtn"), err = document.getElementById("mErr");
+  err.style.display = "none";
+
+  if(!em || !pw){
+    err.textContent = "Email мен құпия сөз міндетті!";
+    err.style.display = "block";
+    return;
+  }
+  if(pw.length < 6){
+    err.textContent = "Құпия сөз кем дегенде 6 символдан тұруы керек!";
+    err.style.display = "block";
+    return;
+  }
+
+  btn.innerHTML = "<div class=spin></div>";
+  btn.disabled = true;
+
+  try {
+    const r = await fetch("/api/v1/admin/users", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({email: em, password: pw, tariff: tr})
+    });
+    const d = await r.json();
+    btn.innerHTML = "Жасау";
+    btn.disabled = false;
+    if(r.ok){
+      cModal();
+      toast("Жаңа пайдаланушы сәтті құрылды!", "s");
+      await loadU();
+      rDash();
+      return;
+    } else {
+      err.textContent = d.detail || d.message || "Қате пайда болды";
+      err.style.display = "block";
+      return;
+    }
+  } catch(e){
+    btn.innerHTML = "Жасау";
+    btn.disabled = false;
+    err.textContent = "Сервермен байланыс қатесі";
+    err.style.display = "block";
+  }
+}
+
+async function loadP(){
+  try {
+    const r = await fetch("/api/v1/admin/products");
+    if(r.ok){
+      P = await r.json();
+      rPTbl(P);
+      return;
+    }
+  } catch(e){}
+
+  try {
+    const r = await fetch("/api/v1/products");
+    if(r.ok){
+      P = await r.json();
+      rPTbl(P);
+      return;
+    }
+  } catch(e){}
+
+  P = [];
+  rPTbl([]);
+}
+
+function rPTbl(list){
+  if(!list || !list.length){
+    document.getElementById("pTbl").innerHTML = `<div style="padding:32px;text-align:center;color:#94a3b8;font-size:13px;">Тауарлар табылмады</div>`;
+    return;
+  }
+  const ml = {kaspi:"⚡ Kaspi", wildberries:"🟣 WB", ozon:"🔵 Ozon", yandex:"🟡 Yandex", yandex_market:"🟡 Yandex"};
+  document.getElementById("pTbl").innerHTML = `<table class="dtbl">
+    <thead>
+      <tr>
+        <th>Тауар</th>
+        <th>Маркетплейс</th>
+        <th>Баға</th>
+        <th>Күйі</th>
+        <th>Соңғы тексеру</th>
+        <th>Қосылған</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${list.map(p => `<tr>
+        <td style="font-size:13px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.product_name || ''}">
+          <div style="font-weight:500;">${p.product_name || "Тауар #" + p.id}</div>
+          ${p.sku ? `<div style="font-size:11px;color:#94a3b8;">SKU: ${p.sku}</div>` : ''}
+        </td>
+        <td><span class="badge bb">${ml[p.marketplace] || p.marketplace}</span></td>
+        <td style="font-weight:600;">${p.current_price ? Number(p.current_price).toLocaleString() + " ₸" : "—"}</td>
+        <td><span class="badge ${p.is_active ? "bg" : "br"}">${p.is_active ? "Белсенді" : "Өшірілген"}</span></td>
+        <td style="color:#94a3b8;font-size:12px;">${p.last_checked_at ? new Date(p.last_checked_at).toLocaleString("kk-KZ") : "—"}</td>
+        <td style="color:#94a3b8;font-size:12px;">${p.created_at ? new Date(p.created_at).toLocaleDateString("kk-KZ") : "—"}</td>
+      </tr>`).join("")}
+    </tbody>
+  </table>`;
+}
+
+function fP(){
+  const q = document.getElementById("pSrch").value.toLowerCase();
+  rPTbl(P.filter(p => (p.product_name||"").toLowerCase().includes(q) || (p.marketplace||"").toLowerCase().includes(q) || (p.sku||"").toLowerCase().includes(q)));
+}
+
+async function loadAn(){
+  if(!U.length) await loadU();
+  if(!P.length) await loadP();
+  rDash();
+
+  const fr = U.filter(u => !(u.tariff || u.user_metadata?.tariff) || (u.tariff || u.user_metadata?.tariff) === "free").length;
+  const pr = U.filter(u => (u.tariff || u.user_metadata?.tariff) === "pro").length;
+  const en = U.filter(u => (u.tariff || u.user_metadata?.tariff) === "enterprise").length;
+
+  const bc = document.getElementById("barC");
+  if(bc){
+    if(bCh) bCh.destroy();
+    bCh = new Chart(bc, {
+      type: "bar",
+      data: {
+        labels: ["Free", "Pro", "Enterprise"],
+        datasets: [{
+          label: "Пайдаланушылар",
+          data: [fr, pr, en],
+          backgroundColor: ["rgba(148,163,184,.6)", "rgba(99,102,241,.8)", "rgba(245,158,11,.8)"],
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(51,65,85,.3)" } },
+          y: { ticks: { color: "#94a3b8", stepSize: 1 }, grid: { color: "rgba(51,65,85,.3)" }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  const mps = {};
+  P.forEach(p => {
+    const mp = p.marketplace || "kaspi";
+    mps[mp] = (mps[mp] || 0) + 1;
+  });
+
+  const mc = document.getElementById("mpC");
+  if(mc){
+    if(mCh) mCh.destroy();
+    const mpLabels = Object.keys(mps).map(k => k === "kaspi" ? "Kaspi" : (k === "wildberries" ? "WB" : (k === "ozon" ? "Ozon" : k)));
+    mCh = new Chart(mc, {
+      type: "doughnut",
+      data: {
+        labels: mpLabels,
+        datasets: [{
+          data: Object.values(mps),
+          backgroundColor: ["rgba(245,158,11,.8)", "rgba(168,85,247,.8)", "rgba(59,130,246,.8)", "rgba(234,179,8,.8)"],
+          borderColor: "#1e293b",
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { color: "#94a3b8", font: { size: 11 }, padding: 10 } }
+        },
+        cutout: "60%"
+      }
+    });
+  }
+}
+
+function toast(msg, t="n"){
+  const w = document.getElementById("toast"), el = document.createElement("div");
+  el.className = `ti t${t}`;
+  el.innerHTML = `<span>${t==="s"?"✓":t==="e"?"✕":"i"}</span> ${msg}`;
+  w.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+setInterval(() => {
+  const el = document.getElementById("clk");
+  if(el) el.textContent = new Date().toLocaleString("kk-KZ", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+}, 1000);
+
+// Auto-check session on page load
+(async function(){
+  const {data:{session}} = await _sb.auth.getSession();
+  if(session){
+    document.getElementById("aEmail").textContent = session.user?.email || "admin@sellerai.kz";
+    document.getElementById("adminLogin").classList.add("hidden");
+    init();
+  } else {
+    init();
+  }
+})();
+</script></body></html>
